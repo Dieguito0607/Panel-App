@@ -55,20 +55,44 @@
     const streamFrame = document.getElementById("streamFrame");
     const radioPlayer = document.getElementById("radioPlayer");
 
-    video.src = VIDEO_URL;
+    // ─── CARGA DEL VIDEO PUBLICITARIO ────────────────────────────────
+    function loadAdVideo() {
+      if (!video.src || video.src === "" || video.src === window.location.href) {
+        video.src = VIDEO_URL;
+        video.load();
+      }
+    }
+
+    loadAdVideo();
 
     video.addEventListener("loadedmetadata", () => {
       const portrait = video.videoHeight > video.videoWidth;
       video.style.objectFit = portrait ? "contain" : "cover";
     });
 
-    const startPlayback = () => {
-      if (video.paused && !streamFrame.src) {
+    // ─── ASEGURAR REPRODUCCIÓN (evita pantalla negra) ────────────────
+    function ensureVideoPlaying() {
+      // Si hay stream activo, no tocar el video
+      if (streamFrame.src) return;
+      // Si hay radio activa, no reproducir el video (pero sí mostrarlo)
+      if (radioPlayer.src && !radioPlayer.paused) {
+        // Mantener el video pausado pero visible (último frame)
+        return;
+      }
+      if (video.paused) {
         video.play().catch(() => {});
       }
-    };
-    startPlayback();
+    }
 
+    // Reintenta reproducir varias veces tras cargar (por si el navegador
+    // del Smart TV bloquea el primer play)
+    video.addEventListener("canplay", ensureVideoPlaying);
+    video.addEventListener("loadeddata", ensureVideoPlaying);
+    ensureVideoPlaying();
+    setTimeout(ensureVideoPlaying, 1000);
+    setTimeout(ensureVideoPlaying, 3000);
+
+    // ─── FORMATEAR URL DE STREAM ─────────────────────────────────────
     function formatStreamUrl(url) {
       if (!url) return "";
       let videoId = "";
@@ -84,7 +108,14 @@
       return url;
     }
 
-    // Escuchar comandos desde Vercel
+    // ─── RECARGA CON CACHE-BUSTING ───────────────────────────────────
+    function reloadWithCacheBust() {
+      const url = new URL(window.location.href);
+      url.searchParams.set("_r", Date.now().toString());
+      window.location.replace(url.toString());
+    }
+
+    // ─── ESCUCHAR COMANDOS DESDE EL CONTROLADOR ──────────────────────
     listenControlCommands((action, payload) => {
 
       // --- RADIO EN VIVO ---
@@ -103,7 +134,8 @@
         radioPlayer.pause();
         radioPlayer.src = "";
         video.muted = false;
-        startPlayback();
+        loadAdVideo();
+        ensureVideoPlaying();
       }
 
       // --- STREAMING DE VIDEO ---
@@ -120,7 +152,8 @@
         streamFrame.src = "";
         streamFrame.style.display = "none";
         video.muted = false;
-        startPlayback();
+        loadAdVideo();
+        ensureVideoPlaying();
       }
 
       // --- RECARGA FORZADA ---
@@ -128,8 +161,8 @@
         if (!payload || payload.target === "publicidad" || payload.target === "both") {
           // Pequeña espera para que RESET_ALL se procese antes de recargar
           setTimeout(() => {
-            window.location.reload();
-          }, 300);
+            reloadWithCacheBust();
+          }, 500);
         }
       }
     });

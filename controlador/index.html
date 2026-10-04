@@ -179,12 +179,16 @@
       sendControlCommand(CONTROL_ACTIONS.STOP_STREAM);
     });
 
-    // Restablecer el estado predeterminado en los televisores
-    // 1. Limpia estados (radio, stream, etc.)
-    // 2. Recarga la pantalla de publicidad para que el video vuelva a empezar
+    // Restablecer pantallas:
+    // 1) Enviamos RESET_ALL para limpiar estados (radio, stream, etc.)
+    // 2) Esperamos 1.5s para asegurar que la pantalla procesó la limpieza
+    // 3) Enviamos RELOAD_SCREEN para recargar la pantalla de publicidad
     document.getElementById("btnReset").addEventListener("click", () => {
       sendControlCommand(CONTROL_ACTIONS.RESET_ALL);
-      sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target: "publicidad" });
+
+      setTimeout(() => {
+        sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target: "publicidad" });
+      }, 1500);
     });
   </script>
 </body>
