@@ -133,8 +133,8 @@
     import { initRoutesSlideshow } from "../shared/routes-slideshow.js";
     import { listenControlCommands, CONTROL_ACTIONS } from "../shared/controller-sync.js";
 
-    const video = document.getElementById("ad");
-    const audio = document.getElementById("bg-audio");
+    let video = document.getElementById("ad");
+    let audio = document.getElementById("bg-audio");
     const streamFrame = document.getElementById("streamFrame");
 
     // Reproductor de radio dinámico
@@ -157,11 +157,8 @@
     video.addEventListener("canplay", startVideoPanel);
 
     // ─── AUDIO DE FONDO ──────────────────────────────────────────────
-    // 🔑 CLAVE: no asignamos el src al principio. Solo lo asignamos
-    // cuando entramos en modo normal. Así, en modo radio/stream, el
-    // audio NO TIENE SRC y es IMPOSIBLE que suene.
     function asignarAudioFondo() {
-      if (audio.src !== AUDIO_URL_FONDO && !audio.src.endsWith("fondo.mp3")) {
+      if (!audio.src || audio.src === "" || audio.src === window.location.href) {
         audio.src = AUDIO_URL_FONDO;
       }
     }
@@ -176,30 +173,22 @@
       }
     }
 
-function detenerAudioFondo() {
-  try {
-    audio.pause();
-    audio.currentTime = 0;
-    audio.muted = true;
-    audio.volume = 0;
-    audio.removeAttribute("src");
-    audio.load();
-    // Reemplazar el nodo por uno nuevo: garantiza que el buffer muere
-    const nuevoAudio = audio.cloneNode(false);
-    nuevoAudio.id = "bg-audio";
-    nuevoAudio.preload = "auto";
-    nuevoAudio.loop = true;
-    audio.parentNode.replaceChild(nuevoAudio, audio);
-    audio = nuevoAudio;   // ← necesitas declarar `audio` con `let`, no `const`
-  } catch (e) {
-    console.warn("Error al detener audio de fondo:", e);
-  }
-}
+    function detenerAudioFondo() {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.muted = true;
+        audio.volume = 0;
+        audio.removeAttribute("src");
+        audio.load();
+      } catch (e) {
+        console.warn("Error al detener audio de fondo:", e);
+      }
+    }
 
     // Arrancar audio de fondo solo si estamos en modo normal
     iniciarAudioFondo();
 
-    // ⚠️ Este listener NO debe reanudar el audio si estamos en radio/stream
     audio.addEventListener("canplay", () => {
       if (modoActual === "normal" && audio.paused) {
         audio.play().catch(() => {});
@@ -248,7 +237,7 @@ function detenerAudioFondo() {
 
     function entrarModoRadio(url) {
       modoActual = "radio";
-      // 🔑 PRIMERO detener audio de fondo (antes de cualquier otra cosa)
+      // PRIMERO detener audio de fondo
       detenerAudioFondo();
       // Silenciar video del panel
       video.muted = true;
@@ -262,9 +251,11 @@ function detenerAudioFondo() {
       radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
     }
 
-    function entrarModoStream(url) {
+    // ⚡ OPCIÓN A: cualquier SET_STREAM silencia el audio de fondo,
+    // pero solo muestra el stream si va dirigido al panel.
+    function entrarModoStream(url, target) {
       modoActual = "stream";
-      // 🔑 PRIMERO detener audio de fondo
+      // PRIMERO detener audio de fondo (aunque el stream vaya a publicidad)
       detenerAudioFondo();
       // Silenciar video del panel
       video.muted = true;
@@ -272,9 +263,14 @@ function detenerAudioFondo() {
       radioPlayer.pause();
       radioPlayer.removeAttribute("src");
       radioPlayer.load();
-      // Mostrar stream
-      streamFrame.src = formatStreamUrl(url);
-      streamFrame.style.display = "block";
+      // Solo mostrar el stream en pantalla completa si va al panel
+      if (target === "panel" || target === "both") {
+        streamFrame.src = formatStreamUrl(url);
+        streamFrame.style.display = "block";
+      } else {
+        streamFrame.src = "";
+        streamFrame.style.display = "none";
+      }
     }
 
     // ─── ESCUCHAR COMANDOS ───────────────────────────────────────────
@@ -287,15 +283,13 @@ function detenerAudioFondo() {
       else if (action === CONTROL_ACTIONS.STOP_RADIO) {
         entrarModoNormal();
       }
+      // ⚡ OPCIÓN A: reaccionamos a CUALQUIER SET_STREAM, sin importar el target
       else if (action === CONTROL_ACTIONS.SET_STREAM) {
-        if (payload.target === "panel" || payload.target === "both") {
-          entrarModoStream(payload.url);
-        }
+        entrarModoStream(payload.url, payload.target);
       }
+      // ⚡ OPCIÓN A: cualquier STOP_STREAM devuelve el panel a modo normal
       else if (action === CONTROL_ACTIONS.STOP_STREAM) {
-        if (modoActual === "stream") {
-          entrarModoNormal();
-        }
+        entrarModoNormal();
       }
       else if (action === CONTROL_ACTIONS.RESET_ALL) {
         entrarModoNormal();
