@@ -117,7 +117,7 @@
     </div>
   </div>
 
-  <!-- Overlay para stream en vivo (opcional, solo si el stream va al panel) -->
+  <!-- Overlay para stream en vivo (solo si el stream va al panel) -->
   <iframe
     id="streamFrame"
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -157,21 +157,49 @@
     video.addEventListener("canplay", startVideoPanel);
 
     // ─── AUDIO DE FONDO ──────────────────────────────────────────────
-    audio.src = AUDIO_URL_FONDO;
+    // 🔑 CLAVE: no asignamos el src al principio. Solo lo asignamos
+    // cuando entramos en modo normal. Así, en modo radio/stream, el
+    // audio NO TIENE SRC y es IMPOSIBLE que suene.
+    function asignarAudioFondo() {
+      if (audio.src !== AUDIO_URL_FONDO && !audio.src.endsWith("fondo.mp3")) {
+        audio.src = AUDIO_URL_FONDO;
+      }
+    }
 
-    function startAudioFondo() {
-      // Solo suena si estamos en modo "normal"
+    function iniciarAudioFondo() {
       if (modoActual !== "normal") return;
-      if (audio.paused) audio.play().catch(() => {});
+      asignarAudioFondo();
+      audio.muted = false;
+      audio.volume = 1;
+      if (audio.paused) {
+        audio.play().catch(() => {});
+      }
     }
 
-    function pausarAudioFondo() {
-      audio.pause();
-      audio.currentTime = 0;
+    function detenerAudioFondo() {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.muted = true;
+        audio.volume = 0;
+        // 🔑 Vaciar el src: es la única forma 100% segura de que
+        // el navegador no lo reanude por su cuenta.
+        audio.removeAttribute("src");
+        audio.load();
+      } catch (e) {
+        console.warn("Error al detener audio de fondo:", e);
+      }
     }
 
-    startAudioFondo();
-    audio.addEventListener("canplay", startAudioFondo);
+    // Arrancar audio de fondo solo si estamos en modo normal
+    iniciarAudioFondo();
+
+    // ⚠️ Este listener NO debe reanudar el audio si estamos en radio/stream
+    audio.addEventListener("canplay", () => {
+      if (modoActual === "normal" && audio.paused) {
+        audio.play().catch(() => {});
+      }
+    });
 
     // ─── RECARGA CON CACHE-BUSTING ───────────────────────────────────
     function reloadWithCacheBust() {
@@ -199,37 +227,46 @@
     // ─── FUNCIONES DE CAMBIO DE MODO ─────────────────────────────────
     function entrarModoNormal() {
       modoActual = "normal";
-      // Silenciar radio y stream
+      // Detener radio
       radioPlayer.pause();
-      radioPlayer.src = "";
+      radioPlayer.removeAttribute("src");
+      radioPlayer.load();
+      // Detener stream
       streamFrame.src = "";
       streamFrame.style.display = "none";
-      // Restaurar video y audio de fondo
+      // Restaurar video del panel
       video.muted = false;
       video.play().catch(() => {});
-      startAudioFondo();
+      // Restaurar audio de fondo
+      iniciarAudioFondo();
     }
 
     function entrarModoRadio(url) {
       modoActual = "radio";
-      // Silenciar TODO lo local
-      pausarAudioFondo();
+      // 🔑 PRIMERO detener audio de fondo (antes de cualquier otra cosa)
+      detenerAudioFondo();
+      // Silenciar video del panel
       video.muted = true;
       // Detener stream si había
       streamFrame.src = "";
       streamFrame.style.display = "none";
       // Reproducir radio
       radioPlayer.src = url;
+      radioPlayer.muted = false;
+      radioPlayer.volume = 1;
       radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
     }
 
     function entrarModoStream(url) {
       modoActual = "stream";
-      // Silenciar TODO lo local
-      pausarAudioFondo();
+      // 🔑 PRIMERO detener audio de fondo
+      detenerAudioFondo();
+      // Silenciar video del panel
       video.muted = true;
+      // Detener radio si había
       radioPlayer.pause();
-      radioPlayer.src = "";
+      radioPlayer.removeAttribute("src");
+      radioPlayer.load();
       // Mostrar stream
       streamFrame.src = formatStreamUrl(url);
       streamFrame.style.display = "block";
@@ -237,7 +274,7 @@
 
     // ─── ESCUCHAR COMANDOS ───────────────────────────────────────────
     listenControlCommands((action, payload) => {
-      console.log("Panel recibió comando:", action, payload);
+      console.log("Panel recibió comando:", action, payload, "| modo actual:", modoActual);
 
       if (action === CONTROL_ACTIONS.SET_RADIO) {
         entrarModoRadio(payload.url);
@@ -251,7 +288,6 @@
         }
       }
       else if (action === CONTROL_ACTIONS.STOP_STREAM) {
-        // Solo salir del modo stream si estábamos en él
         if (modoActual === "stream") {
           entrarModoNormal();
         }
@@ -268,7 +304,7 @@
 
     // ─── DESBLOQUEO DE AUDIO (Smart TV) ──────────────────────────────
     const unlockAudio = () => {
-      if (modoActual === "normal") startAudioFondo();
+      if (modoActual === "normal") iniciarAudioFondo();
       if (video.paused && modoActual !== "stream") video.play().catch(() => {});
     };
     window.addEventListener("click", unlockAudio, { once: true });
@@ -276,18 +312,16 @@
     window.addEventListener("keydown", unlockAudio, { once: true });
 
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) {
-        if (modoActual === "normal") {
-          startAudioFondo();
-          startVideoPanel();
-        } else if (modoActual === "radio") {
-          // Reanudar radio si estaba sonando
-          if (radioPlayer.paused && radioPlayer.src) {
-            radioPlayer.play().catch(() => {});
-          }
+      if (document.hidden) return;
+      if (modoActual === "normal") {
+        iniciarAudioFondo();
+        startVideoPanel();
+      } else if (modoActual === "radio") {
+        if (radioPlayer.paused && radioPlayer.src) {
+          radioPlayer.play().catch(() => {});
         }
-        // En modo stream no hacemos nada (el iframe se encarga)
       }
+      // En modo stream no hacemos nada
     });
 
     initRoutesSlideshow(document.getElementById("rutas-slide"), { intervalMs: 7000 });
