@@ -5,7 +5,9 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const channel = supabase.channel('parada_control_room');
 
-channel.subscribe();
+channel.subscribe((status) => {
+  console.log("Estado de conexión Supabase Realtime:", status);
+});
 
 export const CONTROL_ACTIONS = {
   SET_RADIO: 'SET_RADIO',
@@ -16,6 +18,7 @@ export const CONTROL_ACTIONS = {
 };
 
 export function sendControlCommand(action, payload = {}) {
+  console.log("Enviando comando:", action, payload);
   channel.send({
     type: 'broadcast',
     event: 'control_action',
@@ -24,7 +27,8 @@ export function sendControlCommand(action, payload = {}) {
 }
 
 export function listenControlCommands(callback) {
-  channel.on('broadcast', { event: 'control_action' }, (response) => {
+  channel.on('broadcast', { event: 'control_action', schema: 'public' }, (response) => {
+    console.log("Comando recibido en pantalla:", response);
     if (response.payload && response.payload.action) {
       callback(response.payload.action, response.payload.payload);
     }
