@@ -17,7 +17,7 @@ export const CONTROL_ACTIONS = {
   RESET_ALL: 'RESET_ALL',
   MUTE_ALL: 'MUTE_ALL',        // NUEVO: silenciar todo
   UNMUTE_ALL: 'UNMUTE_ALL'     // NUEVO: restaurar audio
-  RELOAD_SCREEN: 'RELOAD_SCREEN'  // NUEVO
+
 };
 
 export function sendControlCommand(action, payload = {}) {
