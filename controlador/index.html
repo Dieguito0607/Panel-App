@@ -89,6 +89,12 @@
         grid-template-columns: 1fr;
       }
     }
+    .hint {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-top: 6px;
+      line-height: 1.4;
+    }
   </style>
 </head>
 <body>
@@ -101,16 +107,24 @@
       
       <label for="radioSelect">Seleccionar Emisora Preconfigurada:</label>
       <select id="radioSelect">
-        <option value="">-- Seleccionar o ingresar URL manual --</option>
-        <option value="https://stream.zeno.fm/f3231eb93uquv">Emisora Local FM 1</option>
-        <option value="https://stream.zeno.fm/0883398488000">Emisora Noticias / Deporte</option>
+        <option value="">-- Seleccionar una emisora --</option>
+        <option value="URL_DE_STREAMING_AQUI" data-freq="92.5 FM">📻 Son Carupanero — 92.5 FM</option>
+        <option value="URL_DE_STREAMING_AQUI" data-freq="94.1 FM">📻 Musical FM — 94.1 FM</option>
+        <option value="URL_DE_STREAMING_AQUI" data-freq="101.1 FM">📻 Unica — 101.1 FM</option>
+        <option value="https://app2.radionlin.com/listen/carnaval/radio.mp3" data-freq="99.3 FM">📻 Carnaval — 99.3 FM</option>
+        <option value="URL_DE_STREAMING_AQUI" data-freq="102.7 FM">📻 Costera — 102.7 FM</option>
+        <option value="https://stream.zeno.fm/f3231eb93uquv" data-freq="92.5 FM">📻 Emisora Local FM 1 — 92.5 FM</option>
+        <option value="https://stream.zeno.fm/0883398488000" data-freq="Online">📻 Emisora Noticias / Deporte — Online</option>
+        <!-- 🔽 AÑADE AQUÍ LAS EMISORAS REALES DE CARÚPANO 🔽 -->
+        <!-- <option value="URL_REAL_AQUI" data-freq="XX.X FM">📻 Nombre de la emisora — XX.X FM</option> -->
       </select>
 
-      <label for="radioUrl">O ingresar URL de Radio (Icecast / MP3 Stream):</label>
+      <label for="radioUrl">URL de Radio (se llena al elegir una emisora):</label>
       <input type="text" id="radioUrl" placeholder="https://stream.ejemplo.com/radio.mp3">
+      <p class="hint">Puedes elegir una emisora de la lista o pegar una URL manualmente.</p>
 
       <div class="grid">
-        <button id="btnPlayRadio">▶ Transmitir Radio</button>
+        <button id="btnPlayRadio">▶ Sintonizar Radio</button>
         <button id="btnStopRadio" class="btn-danger">⏹ Apagar Radio</button>
       </div>
     </div>
@@ -150,23 +164,32 @@
     const streamUrl = document.getElementById("streamUrl");
     const streamTarget = document.getElementById("streamTarget");
 
-    // Lógica para enviar señal de Radio
+    // Al elegir una emisora, llenamos automáticamente el input con su URL
+    radioSelect.addEventListener("change", () => {
+      const url = radioSelect.value;
+      if (url) {
+        radioUrl.value = url;
+      }
+    });
+
+    // ─── RADIO ───────────────────────────────────────────────────────
     document.getElementById("btnPlayRadio").addEventListener("click", () => {
       const url = radioUrl.value.trim() || radioSelect.value;
       if (!url) {
-        alert("Por favor ingresa o selecciona una URL de radio.");
+        alert("Por favor selecciona una emisora o ingresa una URL de radio.");
         return;
       }
+      // SET_RADIO hace que el panel y la publicidad muten TODO excepto la radio
       sendControlCommand(CONTROL_ACTIONS.SET_RADIO, { url });
     });
 
-    // Apagar Radio: primero detiene, luego recarga la publicidad
+    // Apagar Radio: detiene y recarga las pantallas
     document.getElementById("btnStopRadio").addEventListener("click", () => {
       sendControlCommand(CONTROL_ACTIONS.STOP_RADIO);
-      sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target: "publicidad" });
+      sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target: "both" });
     });
 
-    // Lógica para enviar señal de Streaming de Video
+    // ─── STREAMING ───────────────────────────────────────────────────
     document.getElementById("btnPlayStream").addEventListener("click", () => {
       const url = streamUrl.value.trim();
       const target = streamTarget.value;
@@ -177,14 +200,14 @@
       sendControlCommand(CONTROL_ACTIONS.SET_STREAM, { url, target });
     });
 
-    // Detener Streaming: primero detiene, luego recarga las pantallas afectadas
+    // Detener Streaming: detiene y recarga las pantallas afectadas
     document.getElementById("btnStopStream").addEventListener("click", () => {
       const target = streamTarget.value;
       sendControlCommand(CONTROL_ACTIONS.STOP_STREAM);
       sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target });
     });
 
-    // Restablecer Pantallas: limpia estado y recarga la publicidad
+    // ─── RESET ───────────────────────────────────────────────────────
     document.getElementById("btnReset").addEventListener("click", () => {
       sendControlCommand(CONTROL_ACTIONS.RESET_ALL);
       sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target: "both" });

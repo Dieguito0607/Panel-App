@@ -88,7 +88,6 @@
       will-change: transform;
     }
 
-    /* Overlay para stream en vivo (oculto por defecto) */
     #streamFrame {
       position: fixed;
       top: 0;
@@ -117,7 +116,6 @@
     </div>
   </div>
 
-  <!-- Overlay para stream en vivo (solo si el stream va al panel) -->
   <iframe
     id="streamFrame"
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -125,7 +123,6 @@
     allowfullscreen>
   </iframe>
 
-  <!-- Audio de fondo continuo -->
   <audio id="bg-audio" preload="auto" loop></audio>
 
   <script type="module">
@@ -137,13 +134,11 @@
     let audio = document.getElementById("bg-audio");
     const streamFrame = document.getElementById("streamFrame");
 
-    // Reproductor de radio dinámico
     const radioPlayer = new Audio();
     radioPlayer.crossOrigin = "anonymous";
     radioPlayer.preload = "auto";
 
     // ─── ESTADO GLOBAL ───────────────────────────────────────────────
-    // "normal" | "radio" | "stream"
     let modoActual = "normal";
 
     // ─── VIDEO PANEL ─────────────────────────────────────────────────
@@ -168,9 +163,7 @@
       asignarAudioFondo();
       audio.muted = false;
       audio.volume = 1;
-      if (audio.paused) {
-        audio.play().catch(() => {});
-      }
+      if (audio.paused) audio.play().catch(() => {});
     }
 
     function detenerAudioFondo() {
@@ -186,7 +179,6 @@
       }
     }
 
-    // Arrancar audio de fondo solo si estamos en modo normal
     iniciarAudioFondo();
 
     audio.addEventListener("canplay", () => {
@@ -221,49 +213,38 @@
     // ─── FUNCIONES DE CAMBIO DE MODO ─────────────────────────────────
     function entrarModoNormal() {
       modoActual = "normal";
-      // Detener radio
       radioPlayer.pause();
       radioPlayer.removeAttribute("src");
       radioPlayer.load();
-      // Detener stream
       streamFrame.src = "";
       streamFrame.style.display = "none";
-      // Restaurar video del panel
       video.muted = false;
       video.play().catch(() => {});
-      // Restaurar audio de fondo
       iniciarAudioFondo();
     }
 
+    // 🔇 RADIO: mutear TODO excepto la radio
     function entrarModoRadio(url) {
       modoActual = "radio";
-      // PRIMERO detener audio de fondo
-      detenerAudioFondo();
-      // Silenciar video del panel
-      video.muted = true;
-      // Detener stream si había
-      streamFrame.src = "";
+      // Silenciar TODO lo local
+      detenerAudioFondo();          // audio de fondo: pausa + src vacío
+      video.muted = true;           // video del panel muteado
+      streamFrame.src = "";         // stream detenido
       streamFrame.style.display = "none";
-      // Reproducir radio
+      // Solo suena la radio
       radioPlayer.src = url;
       radioPlayer.muted = false;
       radioPlayer.volume = 1;
       radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
     }
 
-    // ⚡ OPCIÓN A: cualquier SET_STREAM silencia el audio de fondo,
-    // pero solo muestra el stream si va dirigido al panel.
     function entrarModoStream(url, target) {
       modoActual = "stream";
-      // PRIMERO detener audio de fondo (aunque el stream vaya a publicidad)
       detenerAudioFondo();
-      // Silenciar video del panel
       video.muted = true;
-      // Detener radio si había
       radioPlayer.pause();
       radioPlayer.removeAttribute("src");
       radioPlayer.load();
-      // Solo mostrar el stream en pantalla completa si va al panel
       if (target === "panel" || target === "both") {
         streamFrame.src = formatStreamUrl(url);
         streamFrame.style.display = "block";
@@ -275,7 +256,7 @@
 
     // ─── ESCUCHAR COMANDOS ───────────────────────────────────────────
     listenControlCommands((action, payload) => {
-      console.log("Panel recibió comando:", action, payload, "| modo actual:", modoActual);
+      console.log("Panel recibió comando:", action, payload, "| modo:", modoActual);
 
       if (action === CONTROL_ACTIONS.SET_RADIO) {
         entrarModoRadio(payload.url);
@@ -283,11 +264,9 @@
       else if (action === CONTROL_ACTIONS.STOP_RADIO) {
         entrarModoNormal();
       }
-      // ⚡ OPCIÓN A: reaccionamos a CUALQUIER SET_STREAM, sin importar el target
       else if (action === CONTROL_ACTIONS.SET_STREAM) {
         entrarModoStream(payload.url, payload.target);
       }
-      // ⚡ OPCIÓN A: cualquier STOP_STREAM devuelve el panel a modo normal
       else if (action === CONTROL_ACTIONS.STOP_STREAM) {
         entrarModoNormal();
       }
@@ -320,13 +299,11 @@
           radioPlayer.play().catch(() => {});
         }
       }
-      // En modo stream no hacemos nada
     });
 
     initRoutesSlideshow(document.getElementById("rutas-slide"), { intervalMs: 7000 });
   </script>
 
-  <!-- Registro del Service Worker para funcionamiento offline -->
   <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});

@@ -44,7 +44,7 @@
     allowfullscreen>
   </iframe>
 
-  <!-- Reproductor de Radio oculto si se asigna a esta pantalla -->
+  <!-- Reproductor de Radio -->
   <audio id="radioPlayer" style="display:none;"></audio>
 
   <script type="module">
@@ -54,6 +54,10 @@
     const video = document.getElementById("ad");
     const streamFrame = document.getElementById("streamFrame");
     const radioPlayer = document.getElementById("radioPlayer");
+
+    // ─── ESTADO GLOBAL ───────────────────────────────────────────────
+    // "normal" | "radio" | "stream"
+    let modoActual = "normal";
 
     // ─── CARGA DEL VIDEO PUBLICITARIO ────────────────────────────────
     function loadAdVideo() {
@@ -69,13 +73,10 @@
       video.style.objectFit = portrait ? "contain" : "cover";
     });
 
-    // ─── ASEGURAR REPRODUCCIÓN ───────────────────────────────────────
     function ensureVideoPlaying() {
+      if (modoActual !== "normal") return;
       if (streamFrame.src) return;
-      if (radioPlayer.src && !radioPlayer.paused) return;
-      if (video.paused) {
-        video.play().catch(() => {});
-      }
+      if (video.paused) video.play().catch(() => {});
     }
 
     video.addEventListener("canplay", ensureVideoPlaying);
@@ -107,47 +108,74 @@
       window.location.replace(url.toString());
     }
 
-    // ─── ESCUCHAR COMANDOS DESDE EL CONTROLADOR ──────────────────────
-    listenControlCommands((action, payload) => {
+    // ─── FUNCIONES DE CAMBIO DE MODO ─────────────────────────────────
+    function entrarModoNormal() {
+      modoActual = "normal";
+      // Detener radio
+      radioPlayer.pause();
+      radioPlayer.removeAttribute("src");
+      radioPlayer.load();
+      // Detener stream
+      streamFrame.src = "";
+      streamFrame.style.display = "none";
+      // Restaurar video publicitario
+      video.muted = false;
+      video.play().catch(() => {});
+    }
 
-      // --- RADIO EN VIVO ---
-      if (action === CONTROL_ACTIONS.SET_RADIO) {
-        video.muted = true;
-        video.pause();
-        if (streamFrame.src) {
-          streamFrame.src = "";
-          streamFrame.style.display = "none";
-        }
-        radioPlayer.src = payload.url;
-        radioPlayer.play().catch(() => {});
-      }
-      else if (action === CONTROL_ACTIONS.STOP_RADIO) {
-        radioPlayer.pause();
-        radioPlayer.src = "";
-        video.muted = false;
-        loadAdVideo();
-        ensureVideoPlaying();
-      }
+    // 🔇 RADIO: mutear TODO excepto la radio
+    function entrarModoRadio(url) {
+      modoActual = "radio";
+      // Mute total de video y stream
+      video.muted = true;
+      video.pause();
+      streamFrame.src = "";
+      streamFrame.style.display = "none";
+      // Solo suena la radio
+      radioPlayer.src = url;
+      radioPlayer.muted = false;
+      radioPlayer.volume = 1;
+      radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
+    }
 
-      // --- STREAMING DE VIDEO ---
-      else if (action === CONTROL_ACTIONS.SET_STREAM && (payload.target === "publicidad" || payload.target === "both")) {
-        radioPlayer.pause();
-        radioPlayer.src = "";
-        video.pause();
-        streamFrame.src = formatStreamUrl(payload.url);
+    function entrarModoStream(url, target) {
+      modoActual = "stream";
+      // Detener radio si había
+      radioPlayer.pause();
+      radioPlayer.removeAttribute("src");
+      radioPlayer.load();
+      // Silenciar y pausar video publicitario
+      video.muted = true;
+      video.pause();
+      // Mostrar stream si va a esta pantalla
+      if (target === "publicidad" || target === "both") {
+        streamFrame.src = formatStreamUrl(url);
         streamFrame.style.display = "block";
-      } 
-      else if (action === CONTROL_ACTIONS.STOP_STREAM || action === CONTROL_ACTIONS.RESET_ALL) {
-        radioPlayer.pause();
-        radioPlayer.src = "";
+      } else {
         streamFrame.src = "";
         streamFrame.style.display = "none";
-        video.muted = false;
-        loadAdVideo();
-        ensureVideoPlaying();
       }
+    }
 
-      // --- RECARGA INSTANTÁNEA ---
+    // ─── ESCUCHAR COMANDOS ───────────────────────────────────────────
+    listenControlCommands((action, payload) => {
+      console.log("Publicidad recibió comando:", action, payload, "| modo:", modoActual);
+
+      if (action === CONTROL_ACTIONS.SET_RADIO) {
+        entrarModoRadio(payload.url);
+      }
+      else if (action === CONTROL_ACTIONS.STOP_RADIO) {
+        entrarModoNormal();
+      }
+      else if (action === CONTROL_ACTIONS.SET_STREAM) {
+        entrarModoStream(payload.url, payload.target);
+      }
+      else if (action === CONTROL_ACTIONS.STOP_STREAM) {
+        entrarModoNormal();
+      }
+      else if (action === CONTROL_ACTIONS.RESET_ALL) {
+        entrarModoNormal();
+      }
       else if (action === CONTROL_ACTIONS.RELOAD_SCREEN) {
         if (!payload || payload.target === "publicidad" || payload.target === "both") {
           reloadWithCacheBust();
