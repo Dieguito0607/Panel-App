@@ -176,20 +176,25 @@
       }
     }
 
-    function detenerAudioFondo() {
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-        audio.muted = true;
-        audio.volume = 0;
-        // 🔑 Vaciar el src: es la única forma 100% segura de que
-        // el navegador no lo reanude por su cuenta.
-        audio.removeAttribute("src");
-        audio.load();
-      } catch (e) {
-        console.warn("Error al detener audio de fondo:", e);
-      }
-    }
+function detenerAudioFondo() {
+  try {
+    audio.pause();
+    audio.currentTime = 0;
+    audio.muted = true;
+    audio.volume = 0;
+    audio.removeAttribute("src");
+    audio.load();
+    // Reemplazar el nodo por uno nuevo: garantiza que el buffer muere
+    const nuevoAudio = audio.cloneNode(false);
+    nuevoAudio.id = "bg-audio";
+    nuevoAudio.preload = "auto";
+    nuevoAudio.loop = true;
+    audio.parentNode.replaceChild(nuevoAudio, audio);
+    audio = nuevoAudio;   // ← necesitas declarar `audio` con `let`, no `const`
+  } catch (e) {
+    console.warn("Error al detener audio de fondo:", e);
+  }
+}
 
     // Arrancar audio de fondo solo si estamos en modo normal
     iniciarAudioFondo();
