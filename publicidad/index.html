@@ -62,7 +62,6 @@
         video.load();
       }
     }
-
     loadAdVideo();
 
     video.addEventListener("loadedmetadata", () => {
@@ -70,22 +69,15 @@
       video.style.objectFit = portrait ? "contain" : "cover";
     });
 
-    // ─── ASEGURAR REPRODUCCIÓN (evita pantalla negra) ────────────────
+    // ─── ASEGURAR REPRODUCCIÓN ───────────────────────────────────────
     function ensureVideoPlaying() {
-      // Si hay stream activo, no tocar el video
       if (streamFrame.src) return;
-      // Si hay radio activa, no reproducir el video (pero sí mostrarlo)
-      if (radioPlayer.src && !radioPlayer.paused) {
-        // Mantener el video pausado pero visible (último frame)
-        return;
-      }
+      if (radioPlayer.src && !radioPlayer.paused) return;
       if (video.paused) {
         video.play().catch(() => {});
       }
     }
 
-    // Reintenta reproducir varias veces tras cargar (por si el navegador
-    // del Smart TV bloquea el primer play)
     video.addEventListener("canplay", ensureVideoPlaying);
     video.addEventListener("loadeddata", ensureVideoPlaying);
     ensureVideoPlaying();
@@ -120,7 +112,6 @@
 
       // --- RADIO EN VIVO ---
       if (action === CONTROL_ACTIONS.SET_RADIO) {
-        // Silenciar todo antes de reproducir radio
         video.muted = true;
         video.pause();
         if (streamFrame.src) {
@@ -156,10 +147,9 @@
         ensureVideoPlaying();
       }
 
-      // --- RECARGA FORZADA ---
+      // --- RECARGA INSTANTÁNEA ---
       else if (action === CONTROL_ACTIONS.RELOAD_SCREEN) {
         if (!payload || payload.target === "publicidad" || payload.target === "both") {
-          // Recarga inmediata, sin setTimeout.
           reloadWithCacheBust();
         }
       }

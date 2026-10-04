@@ -160,8 +160,10 @@
       sendControlCommand(CONTROL_ACTIONS.SET_RADIO, { url });
     });
 
+    // Apagar Radio: primero detiene, luego recarga la publicidad
     document.getElementById("btnStopRadio").addEventListener("click", () => {
       sendControlCommand(CONTROL_ACTIONS.STOP_RADIO);
+      sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target: "publicidad" });
     });
 
     // Lógica para enviar señal de Streaming de Video
@@ -175,17 +177,17 @@
       sendControlCommand(CONTROL_ACTIONS.SET_STREAM, { url, target });
     });
 
+    // Detener Streaming: primero detiene, luego recarga las pantallas afectadas
     document.getElementById("btnStopStream").addEventListener("click", () => {
+      const target = streamTarget.value;
       sendControlCommand(CONTROL_ACTIONS.STOP_STREAM);
+      sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target });
     });
 
-    // Restablecer pantallas:
-    // Enviamos ambos comandos juntos. Supabase Realtime garantiza el orden
-    // de entrega por el mismo canal, así que RESET_ALL llega antes que
-    // RELOAD_SCREEN y la pantalla se recarga al instante.
+    // Restablecer Pantallas: limpia estado y recarga la publicidad
     document.getElementById("btnReset").addEventListener("click", () => {
       sendControlCommand(CONTROL_ACTIONS.RESET_ALL);
-      sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target: "publicidad" });
+      sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target: "both" });
     });
   </script>
 </body>

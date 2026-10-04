@@ -108,115 +108,111 @@
   <audio id="bg-audio" preload="auto" loop></audio>
 
   <script type="module">
-  import { VIDEO_URL_PANEL, AUDIO_URL_FONDO } from "../shared/config.js";
-  import { initRoutesSlideshow } from "../shared/routes-slideshow.js";
-  import { listenControlCommands, CONTROL_ACTIONS } from "../shared/controller-sync.js";
+    import { VIDEO_URL_PANEL, AUDIO_URL_FONDO } from "../shared/config.js";
+    import { initRoutesSlideshow } from "../shared/routes-slideshow.js";
+    import { listenControlCommands, CONTROL_ACTIONS } from "../shared/controller-sync.js";
 
-  const video = document.getElementById("ad");
-  const audio = document.getElementById("bg-audio");
-  
-  // Crear reproductor de radio dinámicamente
-  const radioPlayer = new Audio();
-  radioPlayer.crossOrigin = "anonymous";
-  radioPlayer.preload = "auto";
+    const video = document.getElementById("ad");
+    const audio = document.getElementById("bg-audio");
 
-  video.src = VIDEO_URL_PANEL;
-  video.style.objectFit = "cover";
+    // Reproductor de radio dinámico
+    const radioPlayer = new Audio();
+    radioPlayer.crossOrigin = "anonymous";
+    radioPlayer.preload = "auto";
 
-  // ─── FUNCIONES DE CONTROL DE AUDIO ───────────────────────────────
-  let radioActiva = false;
+    let radioActiva = false;
 
-  function silenciarTodoLocal() {
-    // Silenciar video
-    video.muted = true;
-    // Pausar audio de fondo
-    audio.pause();
-    // Pausar cualquier radio previa
-    radioPlayer.pause();
-    radioPlayer.src = "";
-  }
+    // ─── VIDEO PANEL ─────────────────────────────────────────────────
+    video.src = VIDEO_URL_PANEL;
+    video.style.objectFit = "cover";
 
-  function reproducirRadio(url) {
-    radioActiva = true;
-    // 1. Silenciar TODAS las fuentes locales
-    video.muted = true;
-    audio.pause();
-    audio.currentTime = 0;
-    // 2. Reproducir radio
-    radioPlayer.src = url;
-    radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
-  }
-
-  function detenerRadio() {
-    radioActiva = false;
-    radioPlayer.pause();
-    radioPlayer.src = "";
-    // Restaurar audio de fondo
-    startAudio();
-  }
-
-  function restaurarTodo() {
-    radioActiva = false;
-    radioPlayer.pause();
-    radioPlayer.src = "";
-    video.muted = false; // o true según prefieras
-    startAudio();
+    const startPlayback = () => {
+      if (video.paused) video.play().catch(() => {});
+    };
     startPlayback();
-  }
+    video.addEventListener("canplay", startPlayback);
 
-  // ─── REPRODUCCIÓN BASE ───────────────────────────────────────────
-  const startPlayback = () => {
-    if (video.paused) video.play().catch(() => {});
-  };
-  startPlayback();
-  video.addEventListener("canplay", startPlayback);
+    // ─── AUDIO DE FONDO ──────────────────────────────────────────────
+    audio.src = AUDIO_URL_FONDO;
+    const startAudio = () => {
+      if (radioActiva) return;
+      if (audio.paused) audio.play().catch(() => {});
+    };
+    startAudio();
+    audio.addEventListener("canplay", startAudio);
 
-  const startAudio = () => {
-    if (radioActiva) return; // No reproducir audio de fondo si hay radio
-    if (audio.paused) audio.play().catch(() => {});
-  };
-  startAudio();
-  audio.addEventListener("canplay", startAudio);
+    // ─── RECARGA CON CACHE-BUSTING ───────────────────────────────────
+    function reloadWithCacheBust() {
+      const url = new URL(window.location.href);
+      url.searchParams.set("_r", Date.now().toString());
+      window.location.replace(url.toString());
+    }
 
-  // ─── ESCUCHAR COMANDOS DEL CONTROLADOR ───────────────────────────
-  listenControlCommands((action, payload) => {
-    console.log("Panel recibió comando:", action, payload);
+    // ─── ESCUCHAR COMANDOS ───────────────────────────────────────────
+    listenControlCommands((action, payload) => {
+      console.log("Panel recibió comando:", action, payload);
 
-    if (action === CONTROL_ACTIONS.SET_RADIO) {
-      reproducirRadio(payload.url);
-    } else if (action === CONTROL_ACTIONS.STOP_RADIO) {
-      detenerRadio();
-    } else if (action === CONTROL_ACTIONS.RESET_ALL) {
-      restaurarTodo();
-    } else if (action === CONTROL_ACTIONS.MUTE_ALL) {
-      silenciarTodoLocal();
-    } else if (action === CONTROL_ACTIONS.SET_STREAM) {
-      // Si llega un stream al panel, silenciar radio también
-      if (payload.target === "panel" || payload.target === "both") {
+      if (action === CONTROL_ACTIONS.SET_RADIO) {
+        radioActiva = true;
+        video.muted = true;
+        audio.pause();
+        audio.currentTime = 0;
+        radioPlayer.src = payload.url;
+        radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
+      }
+      else if (action === CONTROL_ACTIONS.STOP_RADIO) {
+        radioActiva = false;
         radioPlayer.pause();
         radioPlayer.src = "";
-        radioActiva = false;
+        video.muted = false;
+        startAudio();
       }
-    }
-  });
+      else if (action === CONTROL_ACTIONS.RESET_ALL) {
+        radioActiva = false;
+        radioPlayer.pause();
+        radioPlayer.src = "";
+        video.muted = false;
+        startAudio();
+        startPlayback();
+      }
+      else if (action === CONTROL_ACTIONS.SET_STREAM) {
+        if (payload.target === "panel" || payload.target === "both") {
+          radioActiva = false;
+          radioPlayer.pause();
+          radioPlayer.src = "";
+        }
+      }
+      else if (action === CONTROL_ACTIONS.RELOAD_SCREEN) {
+        if (!payload || payload.target === "panel" || payload.target === "both") {
+          reloadWithCacheBust();
+        }
+      }
+    });
 
-  // ─── DESBLOQUEO DE AUDIO (Smart TV) ──────────────────────────────
-  const unlockAudio = () => {
-    if (!radioActiva) startAudio();
-  };
-  window.addEventListener("click", unlockAudio, { once: true });
-  window.addEventListener("touchstart", unlockAudio, { once: true });
-  window.addEventListener("keydown", unlockAudio, { once: true });
-
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) {
-      startPlayback();
+    // ─── DESBLOQUEO DE AUDIO (Smart TV) ──────────────────────────────
+    const unlockAudio = () => {
       if (!radioActiva) startAudio();
-    }
-  });
+    };
+    window.addEventListener("click", unlockAudio, { once: true });
+    window.addEventListener("touchstart", unlockAudio, { once: true });
+    window.addEventListener("keydown", unlockAudio, { once: true });
 
-  initRoutesSlideshow(document.getElementById("rutas-slide"), { intervalMs: 7000 });
-</script>
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        startPlayback();
+        if (!radioActiva) startAudio();
+      }
+    });
+
+    initRoutesSlideshow(document.getElementById("rutas-slide"), { intervalMs: 7000 });
+  </script>
+
+  <!-- Registro del Service Worker para funcionamiento offline -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  </script>
 </body>
 
 </html>
