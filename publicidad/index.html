@@ -159,10 +159,8 @@
       // --- RECARGA FORZADA ---
       else if (action === CONTROL_ACTIONS.RELOAD_SCREEN) {
         if (!payload || payload.target === "publicidad" || payload.target === "both") {
-          // Pequeña espera para que RESET_ALL se procese antes de recargar
-          setTimeout(() => {
-            reloadWithCacheBust();
-          }, 500);
+          // Recarga inmediata, sin setTimeout.
+          reloadWithCacheBust();
         }
       }
     });
