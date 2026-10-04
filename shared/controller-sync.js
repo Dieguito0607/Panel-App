@@ -14,7 +14,9 @@ export const CONTROL_ACTIONS = {
   STOP_RADIO: 'STOP_RADIO',
   SET_STREAM: 'SET_STREAM',
   STOP_STREAM: 'STOP_STREAM',
-  RESET_ALL: 'RESET_ALL'
+  RESET_ALL: 'RESET_ALL',
+  MUTE_ALL: 'MUTE_ALL',        // NUEVO: silenciar todo
+  UNMUTE_ALL: 'UNMUTE_ALL'     // NUEVO: restaurar audio
 };
 
 export function sendControlCommand(action, payload = {}) {

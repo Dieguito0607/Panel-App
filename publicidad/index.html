@@ -48,71 +48,79 @@
   <audio id="radioPlayer" style="display:none;"></audio>
 
   <script type="module">
-    import { VIDEO_URL } from "../shared/config.js";
-    import { listenControlCommands, CONTROL_ACTIONS } from "../shared/controller-sync.js";
+  import { VIDEO_URL } from "../shared/config.js";
+  import { listenControlCommands, CONTROL_ACTIONS } from "../shared/controller-sync.js";
 
-    const video = document.getElementById("ad");
-    const streamFrame = document.getElementById("streamFrame");
-    const radioPlayer = document.getElementById("radioPlayer");
+  const video = document.getElementById("ad");
+  const streamFrame = document.getElementById("streamFrame");
+  const radioPlayer = document.getElementById("radioPlayer");
 
-    video.src = VIDEO_URL;
+  video.src = VIDEO_URL;
 
-    video.addEventListener("loadedmetadata", () => {
-      const portrait = video.videoHeight > video.videoWidth;
-      video.style.objectFit = portrait ? "contain" : "cover";
-    });
+  video.addEventListener("loadedmetadata", () => {
+    const portrait = video.videoHeight > video.videoWidth;
+    video.style.objectFit = portrait ? "contain" : "cover";
+  });
 
-    const startPlayback = () => {
-      if (video.paused && !streamFrame.src) {
-        video.play().catch(() => {});
+  const startPlayback = () => {
+    if (video.paused && !streamFrame.src) {
+      video.play().catch(() => {});
+    }
+  };
+  startPlayback();
+
+  function formatStreamUrl(url) {
+    if (!url) return "";
+    let videoId = "";
+    if (url.includes("v=")) videoId = url.split("v=")[1]?.split("&")[0];
+    else if (url.includes("youtu.be/")) videoId = url.split("youtu.be/")[1]?.split("?")[0];
+    else if (url.includes("youtube.com/live/")) videoId = url.split("youtube.com/live/")[1]?.split("?")[0];
+    else if (url.includes("embed/")) videoId = url.split("embed/")[1]?.split("?")[0];
+
+    if (videoId) {
+      const origin = encodeURIComponent(window.location.origin);
+      return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&enablejsapi=1&origin=${origin}`;
+    }
+    return url;
+  }
+
+  listenControlCommands((action, payload) => {
+    // --- RADIO EN VIVO ---
+    if (action === CONTROL_ACTIONS.SET_RADIO) {
+      // Silenciar TODO antes de reproducir radio
+      video.muted = true;
+      video.pause();                    // Pausar video publicitario
+      if (streamFrame.src) {
+        streamFrame.src = "";           // Detener stream si había uno
+        streamFrame.style.display = "none";
       }
-    };
-    startPlayback();
-
-    function formatStreamUrl(url) {
-      if (!url) return "";
-      let videoId = "";
-      if (url.includes("v=")) videoId = url.split("v=")[1]?.split("&")[0];
-      else if (url.includes("youtu.be/")) videoId = url.split("youtu.be/")[1]?.split("?")[0];
-      else if (url.includes("youtube.com/live/")) videoId = url.split("youtube.com/live/")[1]?.split("?")[0];
-      else if (url.includes("embed/")) videoId = url.split("embed/")[1]?.split("?")[0];
-
-      if (videoId) {
-        const origin = encodeURIComponent(window.location.origin);
-        return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&enablejsapi=1&origin=${origin}`;
-      }
-      return url;
+      radioPlayer.src = payload.url;
+      radioPlayer.play().catch(() => {});
+    }
+    else if (action === CONTROL_ACTIONS.STOP_RADIO) {
+      radioPlayer.pause();
+      radioPlayer.src = "";
+      video.muted = false;              // Restaurar sonido del video (o true si prefieres)
+      startPlayback();
     }
 
-    // Escuchar comandos desde Vercel
-    listenControlCommands((action, payload) => {
-
-      // --- RADIO EN VIVO ---
-      if (action === CONTROL_ACTIONS.SET_RADIO) {
-        video.muted = true;
-        radioPlayer.src = payload.url;
-        radioPlayer.play().catch(() => {});
-      }
-      else if (action === CONTROL_ACTIONS.STOP_RADIO) {
-        radioPlayer.pause();
-        radioPlayer.src = "";
-      }
-
-      // --- STREAMING DE VIDEO ---
-      else if (action === CONTROL_ACTIONS.SET_STREAM && (payload.target === "publicidad" || payload.target === "both")) {
-        video.pause();
-        radioPlayer.pause();
-        streamFrame.src = formatStreamUrl(payload.url);
-        streamFrame.style.display = "block";
-      } 
-      else if (action === CONTROL_ACTIONS.STOP_STREAM || action === CONTROL_ACTIONS.RESET_ALL) {
-        radioPlayer.pause();
-        radioPlayer.src = "";
-        streamFrame.src = "";
-        streamFrame.style.display = "none";
-        startPlayback();
-      }
-    });
-  </script>
+    // --- STREAMING DE VIDEO ---
+    else if (action === CONTROL_ACTIONS.SET_STREAM && (payload.target === "publicidad" || payload.target === "both")) {
+      radioPlayer.pause();              // Detener radio si había
+      radioPlayer.src = "";
+      video.pause();
+      streamFrame.src = formatStreamUrl(payload.url);
+      streamFrame.style.display = "block";
+    }
+    else if (action === CONTROL_ACTIONS.STOP_STREAM || action === CONTROL_ACTIONS.RESET_ALL) {
+      radioPlayer.pause();
+      radioPlayer.src = "";
+      streamFrame.src = "";
+      streamFrame.style.display = "none";
+      video.muted = false;
+      startPlayback();
+    }
+  });
+</script>
 </body>
 </html>
