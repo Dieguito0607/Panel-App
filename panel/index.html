@@ -87,6 +87,19 @@
       transform: translateZ(0);
       will-change: transform;
     }
+
+    /* Overlay para stream en vivo (oculto por defecto) */
+    #streamFrame {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      border: none;
+      background: #000;
+      display: none;
+      z-index: 9999;
+    }
   </style>
 </head>
 
@@ -104,6 +117,14 @@
     </div>
   </div>
 
+  <!-- Overlay para stream en vivo (opcional, solo si el stream va al panel) -->
+  <iframe
+    id="streamFrame"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allowfullscreen>
+  </iframe>
+
   <!-- Audio de fondo continuo -->
   <audio id="bg-audio" preload="auto" loop></audio>
 
@@ -114,32 +135,43 @@
 
     const video = document.getElementById("ad");
     const audio = document.getElementById("bg-audio");
+    const streamFrame = document.getElementById("streamFrame");
 
     // Reproductor de radio dinámico
     const radioPlayer = new Audio();
     radioPlayer.crossOrigin = "anonymous";
     radioPlayer.preload = "auto";
 
-    let radioActiva = false;
+    // ─── ESTADO GLOBAL ───────────────────────────────────────────────
+    // "normal" | "radio" | "stream"
+    let modoActual = "normal";
 
     // ─── VIDEO PANEL ─────────────────────────────────────────────────
     video.src = VIDEO_URL_PANEL;
     video.style.objectFit = "cover";
 
-    const startPlayback = () => {
+    function startVideoPanel() {
       if (video.paused) video.play().catch(() => {});
-    };
-    startPlayback();
-    video.addEventListener("canplay", startPlayback);
+    }
+    startVideoPanel();
+    video.addEventListener("canplay", startVideoPanel);
 
     // ─── AUDIO DE FONDO ──────────────────────────────────────────────
     audio.src = AUDIO_URL_FONDO;
-    const startAudio = () => {
-      if (radioActiva) return;
+
+    function startAudioFondo() {
+      // Solo suena si estamos en modo "normal"
+      if (modoActual !== "normal") return;
       if (audio.paused) audio.play().catch(() => {});
-    };
-    startAudio();
-    audio.addEventListener("canplay", startAudio);
+    }
+
+    function pausarAudioFondo() {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+
+    startAudioFondo();
+    audio.addEventListener("canplay", startAudioFondo);
 
     // ─── RECARGA CON CACHE-BUSTING ───────────────────────────────────
     function reloadWithCacheBust() {
@@ -148,39 +180,84 @@
       window.location.replace(url.toString());
     }
 
+    // ─── FORMATEAR URL DE STREAM ─────────────────────────────────────
+    function formatStreamUrl(url) {
+      if (!url) return "";
+      let videoId = "";
+      if (url.includes("v=")) videoId = url.split("v=")[1]?.split("&")[0];
+      else if (url.includes("youtu.be/")) videoId = url.split("youtu.be/")[1]?.split("?")[0];
+      else if (url.includes("youtube.com/live/")) videoId = url.split("youtube.com/live/")[1]?.split("?")[0];
+      else if (url.includes("embed/")) videoId = url.split("embed/")[1]?.split("?")[0];
+
+      if (videoId) {
+        const origin = encodeURIComponent(window.location.origin);
+        return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&enablejsapi=1&origin=${origin}`;
+      }
+      return url;
+    }
+
+    // ─── FUNCIONES DE CAMBIO DE MODO ─────────────────────────────────
+    function entrarModoNormal() {
+      modoActual = "normal";
+      // Silenciar radio y stream
+      radioPlayer.pause();
+      radioPlayer.src = "";
+      streamFrame.src = "";
+      streamFrame.style.display = "none";
+      // Restaurar video y audio de fondo
+      video.muted = false;
+      video.play().catch(() => {});
+      startAudioFondo();
+    }
+
+    function entrarModoRadio(url) {
+      modoActual = "radio";
+      // Silenciar TODO lo local
+      pausarAudioFondo();
+      video.muted = true;
+      // Detener stream si había
+      streamFrame.src = "";
+      streamFrame.style.display = "none";
+      // Reproducir radio
+      radioPlayer.src = url;
+      radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
+    }
+
+    function entrarModoStream(url) {
+      modoActual = "stream";
+      // Silenciar TODO lo local
+      pausarAudioFondo();
+      video.muted = true;
+      radioPlayer.pause();
+      radioPlayer.src = "";
+      // Mostrar stream
+      streamFrame.src = formatStreamUrl(url);
+      streamFrame.style.display = "block";
+    }
+
     // ─── ESCUCHAR COMANDOS ───────────────────────────────────────────
     listenControlCommands((action, payload) => {
       console.log("Panel recibió comando:", action, payload);
 
       if (action === CONTROL_ACTIONS.SET_RADIO) {
-        radioActiva = true;
-        video.muted = true;
-        audio.pause();
-        audio.currentTime = 0;
-        radioPlayer.src = payload.url;
-        radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
+        entrarModoRadio(payload.url);
       }
       else if (action === CONTROL_ACTIONS.STOP_RADIO) {
-        radioActiva = false;
-        radioPlayer.pause();
-        radioPlayer.src = "";
-        video.muted = false;
-        startAudio();
-      }
-      else if (action === CONTROL_ACTIONS.RESET_ALL) {
-        radioActiva = false;
-        radioPlayer.pause();
-        radioPlayer.src = "";
-        video.muted = false;
-        startAudio();
-        startPlayback();
+        entrarModoNormal();
       }
       else if (action === CONTROL_ACTIONS.SET_STREAM) {
         if (payload.target === "panel" || payload.target === "both") {
-          radioActiva = false;
-          radioPlayer.pause();
-          radioPlayer.src = "";
+          entrarModoStream(payload.url);
         }
+      }
+      else if (action === CONTROL_ACTIONS.STOP_STREAM) {
+        // Solo salir del modo stream si estábamos en él
+        if (modoActual === "stream") {
+          entrarModoNormal();
+        }
+      }
+      else if (action === CONTROL_ACTIONS.RESET_ALL) {
+        entrarModoNormal();
       }
       else if (action === CONTROL_ACTIONS.RELOAD_SCREEN) {
         if (!payload || payload.target === "panel" || payload.target === "both") {
@@ -191,7 +268,8 @@
 
     // ─── DESBLOQUEO DE AUDIO (Smart TV) ──────────────────────────────
     const unlockAudio = () => {
-      if (!radioActiva) startAudio();
+      if (modoActual === "normal") startAudioFondo();
+      if (video.paused && modoActual !== "stream") video.play().catch(() => {});
     };
     window.addEventListener("click", unlockAudio, { once: true });
     window.addEventListener("touchstart", unlockAudio, { once: true });
@@ -199,8 +277,16 @@
 
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) {
-        startPlayback();
-        if (!radioActiva) startAudio();
+        if (modoActual === "normal") {
+          startAudioFondo();
+          startVideoPanel();
+        } else if (modoActual === "radio") {
+          // Reanudar radio si estaba sonando
+          if (radioPlayer.paused && radioPlayer.src) {
+            radioPlayer.play().catch(() => {});
+          }
+        }
+        // En modo stream no hacemos nada (el iframe se encarga)
       }
     });
 
