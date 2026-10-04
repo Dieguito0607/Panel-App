@@ -142,45 +142,50 @@
     </div>
   </div>
 
-<script type="module">
-  import { sendControlCommand, CONTROL_ACTIONS } from "../shared/controller-sync.js";
+  <script type="module">
+    import { sendControlCommand, CONTROL_ACTIONS } from "../shared/controller-sync.js";
 
-  const radioSelect = document.getElementById("radioSelect");
-  const radioUrl = document.getElementById("radioUrl");
-  const streamUrl = document.getElementById("streamUrl");
-  const streamTarget = document.getElementById("streamTarget");
+    const radioSelect = document.getElementById("radioSelect");
+    const radioUrl = document.getElementById("radioUrl");
+    const streamUrl = document.getElementById("streamUrl");
+    const streamTarget = document.getElementById("streamTarget");
 
-  document.getElementById("btnPlayRadio").addEventListener("click", () => {
-    const url = radioUrl.value.trim() || radioSelect.value;
-    if (!url) {
-      alert("Por favor ingresa o selecciona una URL de radio.");
-      return;
-    }
-    // Al sintonizar radio, enviamos SET_RADIO que silenciará todo en las pantallas
-    sendControlCommand(CONTROL_ACTIONS.SET_RADIO, { url });
-  });
+    // Lógica para enviar señal de Radio
+    document.getElementById("btnPlayRadio").addEventListener("click", () => {
+      const url = radioUrl.value.trim() || radioSelect.value;
+      if (!url) {
+        alert("Por favor ingresa o selecciona una URL de radio.");
+        return;
+      }
+      sendControlCommand(CONTROL_ACTIONS.SET_RADIO, { url });
+    });
 
-  document.getElementById("btnStopRadio").addEventListener("click", () => {
-    sendControlCommand(CONTROL_ACTIONS.STOP_RADIO);
-  });
+    document.getElementById("btnStopRadio").addEventListener("click", () => {
+      sendControlCommand(CONTROL_ACTIONS.STOP_RADIO);
+    });
 
-  document.getElementById("btnPlayStream").addEventListener("click", () => {
-    const url = streamUrl.value.trim();
-    const target = streamTarget.value;
-    if (!url) {
-      alert("Por favor ingresa una URL de streaming.");
-      return;
-    }
-    sendControlCommand(CONTROL_ACTIONS.SET_STREAM, { url, target });
-  });
+    // Lógica para enviar señal de Streaming de Video
+    document.getElementById("btnPlayStream").addEventListener("click", () => {
+      const url = streamUrl.value.trim();
+      const target = streamTarget.value;
+      if (!url) {
+        alert("Por favor ingresa una URL de streaming.");
+        return;
+      }
+      sendControlCommand(CONTROL_ACTIONS.SET_STREAM, { url, target });
+    });
 
-  document.getElementById("btnStopStream").addEventListener("click", () => {
-    sendControlCommand(CONTROL_ACTIONS.STOP_STREAM);
-  });
+    document.getElementById("btnStopStream").addEventListener("click", () => {
+      sendControlCommand(CONTROL_ACTIONS.STOP_STREAM);
+    });
 
-  document.getElementById("btnReset").addEventListener("click", () => {
-    sendControlCommand(CONTROL_ACTIONS.RESET_ALL);
-  });
-</script>
+    // Restablecer el estado predeterminado en los televisores
+    // 1. Limpia estados (radio, stream, etc.)
+    // 2. Recarga la pantalla de publicidad para que el video vuelva a empezar
+    document.getElementById("btnReset").addEventListener("click", () => {
+      sendControlCommand(CONTROL_ACTIONS.RESET_ALL);
+      sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target: "publicidad" });
+    });
+  </script>
 </body>
 </html>
