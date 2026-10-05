@@ -123,20 +123,6 @@
       video.play().catch(() => {});
     }
 
-    // 🔇 RADIO: mutear TODO excepto la radio
-    function entrarModoRadio(url) {
-      modoActual = "radio";
-      // Mute total de video y stream
-      video.muted = true;
-      video.pause();
-      streamFrame.src = "";
-      streamFrame.style.display = "none";
-      // Solo suena la radio
-      radioPlayer.src = url;
-      radioPlayer.muted = false;
-      radioPlayer.volume = 1;
-      radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
-    }
 
     function entrarModoStream(url, target) {
       modoActual = "stream";
