@@ -8,8 +8,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <style>
-    html,
-    body {
+    html, body {
       margin: 0;
       padding: 0;
       height: 100%;
@@ -29,64 +28,15 @@
       height: 100vh;
     }
 
-    .cell {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: none;
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      color: #666;
-      font-size: 2vw;
-      letter-spacing: 0.05em;
-    }
+    .cell { display: flex; align-items: center; justify-content: center; border: none; margin: 0; padding: 0; overflow: hidden; color: #666; font-size: 2vw; letter-spacing: 0.05em; }
+    .cell-izq { grid-area: izq; }
+    .cell-top-der { grid-area: top-der; border: 1px solid #222; }
+    .cell-slide { grid-area: video; }
+    .cell-video { grid-area: bot-der; background: #000; transform: translateZ(0); will-change: transform; }
 
-    .cell-izq {
-      grid-area: izq;
-      padding: 0;
-      margin: 0;
-      border: none;
-    }
+    .cell-izq iframe { width: 100%; height: 100%; border: none; display: block; }
 
-    .cell-top-der {
-      grid-area: top-der;
-      border: 1px solid #222;
-    }
-
-    .cell-slide {
-      grid-area: video;
-      padding: 0;
-      margin: 0;
-      border: none;
-    }
-
-    .cell-video {
-      grid-area: bot-der;
-      padding: 0;
-      margin: 0;
-      border: none;
-      background: #000;
-      transform: translateZ(0);
-      will-change: transform;
-    }
-
-    .cell-izq iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
-      transform: translateZ(0);
-    }
-
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-      transform: translateZ(0);
-      will-change: transform;
-    }
+    video { width: 100%; height: 100%; object-fit: cover; display: block; }
 
     #streamFrame {
       position: fixed;
@@ -137,7 +87,7 @@
     import { initRoutesSlideshow } from "../shared/routes-slideshow.js";
     import { listenControlCommands, CONTROL_ACTIONS } from "../shared/controller-sync.js";
 
-    let video = document.getElementById("ad");
+    const video = document.getElementById("ad");
     let audio = document.getElementById("bg-audio");
     const streamFrame = document.getElementById("streamFrame");
 
@@ -145,7 +95,6 @@
     radioPlayer.crossOrigin = "anonymous";
     radioPlayer.preload = "auto";
 
-    // ─── ESTADO GLOBAL ───────────────────────────────────────────────
     let modoActual = "normal";
 
     // ─── VIDEO PANEL ─────────────────────────────────────────────────
@@ -194,7 +143,7 @@
       }
     });
 
-    // ─── FORMATEAR URL DE STREAM ─────────────────────────────────────
+    // ─── HELPERS ─────────────────────────────────────────────────────
     function formatStreamUrl(url) {
       if (!url) return "";
       let videoId = "";
@@ -210,21 +159,28 @@
       return url;
     }
 
-    // ─── FUNCIONES DE CAMBIO DE MODO ─────────────────────────────────
-    // 🔄 Reinicia TODO sin recargar la página.
-    function entrarModoNormal() {
-      modoActual = "normal";
+    function detenerRadioTotal() {
+      try {
+        radioPlayer.pause();
+        radioPlayer.currentTime = 0;
+        radioPlayer.removeAttribute("src");
+        radioPlayer.load();
+      } catch (e) {
+        console.warn("Error al detener radio:", e);
+      }
+    }
 
-      // Detener radio
-      radioPlayer.pause();
-      radioPlayer.removeAttribute("src");
-      radioPlayer.load();
+    function detenerStreamTotal() {
+      try {
+        streamFrame.src = "";
+        streamFrame.style.display = "none";
+      } catch (e) {
+        console.warn("Error al detener stream:", e);
+      }
+    }
 
-      // Detener stream
-      streamFrame.src = "";
-      streamFrame.style.display = "none";
-
-      // Reiniciar video del panel desde el principio
+    // 🔄 Vuelve el video del panel a su estado normal (reproducir desde el inicio)
+    function restaurarVideoPanel() {
       video.muted = false;
       video.pause();
       video.currentTime = 0;
@@ -233,43 +189,50 @@
       }
       video.load();
       video.play().catch(() => {});
+    }
 
-      // Reiniciar audio de fondo
+    // ─── MODOS ───────────────────────────────────────────────────────
+    function entrarModoNormal() {
+      modoActual = "normal";
+      detenerRadioTotal();
+      detenerStreamTotal();
+      restaurarVideoPanel();
       iniciarAudioFondo();
     }
 
-    // 🔇 RADIO: mutear TODO excepto la radio
+    // 🔇 MODO RADIO: corta stream, deja el panel en su modo normal (muteado),
+    //    y suena SOLO la radio.
     function entrarModoRadio(url) {
       modoActual = "radio";
 
-      // Silenciar TODO lo local
-      detenerAudioFondo();
-      video.muted = true;
-      streamFrame.src = "";
-      streamFrame.style.display = "none";
+      // 1. Cortar stream y restaurar la vista normal del panel (muteada)
+      detenerStreamTotal();
+      restaurarVideoPanel();
+      video.muted = true;         // se ve pero no suena
+      detenerAudioFondo();        // el audio de fondo tampoco suena
 
-      // Solo suena la radio
+      // 2. Reproducir radio
+      detenerRadioTotal();
       radioPlayer.src = url;
       radioPlayer.muted = false;
       radioPlayer.volume = 1;
       radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
     }
 
+    // 🎬 MODO STREAM: corta radio y audio de fondo, mutea video del panel,
+    //    muestra el stream si va al panel.
     function entrarModoStream(url, target) {
       modoActual = "stream";
 
+      detenerRadioTotal();
       detenerAudioFondo();
       video.muted = true;
-      radioPlayer.pause();
-      radioPlayer.removeAttribute("src");
-      radioPlayer.load();
 
       if (target === "panel" || target === "both") {
         streamFrame.src = formatStreamUrl(url);
         streamFrame.style.display = "block";
       } else {
-        streamFrame.src = "";
-        streamFrame.style.display = "none";
+        detenerStreamTotal();
       }
     }
 
@@ -292,7 +255,6 @@
       else if (action === CONTROL_ACTIONS.RESET_ALL) {
         entrarModoNormal();
       }
-      // RELOAD_SCREEN sigue disponible pero ya no se dispara desde los botones
       else if (action === CONTROL_ACTIONS.RELOAD_SCREEN) {
         if (!payload || payload.target === "panel" || payload.target === "both") {
           const url = new URL(window.location.href);
