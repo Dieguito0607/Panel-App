@@ -33,18 +33,14 @@
 </head>
 <body>
 
-  <!-- Video publicitario base -->
   <video id="ad" preload="auto" muted autoplay loop playsinline></video>
 
-  <!-- Frame para transmisión en vivo (solo Televisor 2) -->
   <iframe 
     id="streamFrame" 
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
     referrerpolicy="strict-origin-when-cross-origin"
     allowfullscreen>
   </iframe>
-
-  <!-- ❌ Ya NO hay radioPlayer aquí: la radio es del Televisor 1 -->
 
   <script type="module">
     import { VIDEO_URL } from "../shared/config.js";
@@ -122,27 +118,20 @@
       restaurarVideoPublicitario();
     }
 
-    // 🎬 MODO STREAM: corta el video publicitario y muestra el stream
+    // 🎬 MODO STREAM: solo en el Televisor 2
     function entrarModoStream(url) {
       modoActual = "stream";
-
-      // Pausar y mutear el video publicitario
       video.muted = true;
       video.pause();
-
-      // Mostrar stream
       streamFrame.src = formatStreamUrl(url);
       streamFrame.style.display = "block";
     }
 
     // ─── ESCUCHAR COMANDOS ───────────────────────────────────────────
-    // ⚠️ La publicidad SOLO reacciona a comandos de STREAM y RESET.
-    //    Ignora SET_RADIO / STOP_RADIO porque la radio es del Televisor 1.
     listenControlCommands((action, payload) => {
       console.log("Publicidad (TV2) recibió comando:", action, payload, "| modo:", modoActual);
 
       if (action === CONTROL_ACTIONS.SET_STREAM) {
-        // El stream siempre va a esta pantalla (ya no hay selector de target)
         entrarModoStream(payload.url);
       }
       else if (action === CONTROL_ACTIONS.STOP_STREAM) {
@@ -158,7 +147,7 @@
           window.location.replace(url.toString());
         }
       }
-      // Los comandos SET_RADIO / STOP_RADIO se ignoran a propósito aquí.
+      // SET_RADIO / STOP_RADIO se ignoran: la radio es del TV1
     });
   </script>
 </body>

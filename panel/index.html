@@ -54,7 +54,6 @@
     </div>
   </div>
 
-  <!-- Audio de fondo continuo -->
   <audio id="bg-audio" preload="auto" loop></audio>
 
   <script type="module">
@@ -65,7 +64,6 @@
     const video = document.getElementById("ad");
     const audio = document.getElementById("bg-audio");
 
-    // Reproductor de radio (solo para el Televisor 1)
     const radioPlayer = new Audio();
     radioPlayer.crossOrigin = "anonymous";
     radioPlayer.preload = "auto";
@@ -134,22 +132,16 @@
     function entrarModoNormal() {
       modoActual = "normal";
       detenerRadioTotal();
-      // Reactivar audio de fondo
-      iniciarAudioFondo();
-      // Asegurar que el video del panel sigue sonando (si quieres que suene)
-      video.muted = true; // déjalo muteado si solo quieres el audio de fondo
+      video.muted = true; // el video del panel siempre está muteado
       video.play().catch(() => {});
+      iniciarAudioFondo();
     }
 
     // 🔇 MODO RADIO: solo suena la radio en este televisor
     function entrarModoRadio(url) {
       modoActual = "radio";
-
-      // Silenciar TODO lo local
       detenerAudioFondo();
       video.muted = true;
-
-      // Reproducir radio
       detenerRadioTotal();
       radioPlayer.src = url;
       radioPlayer.muted = false;
@@ -158,8 +150,6 @@
     }
 
     // ─── ESCUCHAR COMANDOS ───────────────────────────────────────────
-    // ⚠️ El panel SOLO reacciona a comandos de RADIO y RESET.
-    //    Ignora SET_STREAM / STOP_STREAM porque el streaming es del Televisor 2.
     listenControlCommands((action, payload) => {
       console.log("Panel (TV1) recibió comando:", action, payload, "| modo:", modoActual);
 
@@ -179,10 +169,10 @@
           window.location.replace(url.toString());
         }
       }
-      // Los comandos SET_STREAM / STOP_STREAM se ignoran a propósito aquí.
+      // SET_STREAM / STOP_STREAM se ignoran: el streaming es del TV2
     });
 
-    // ─── DESBLOQUEO DE AUDIO (Smart TV) ──────────────────────────────
+    // ─── DESBLOQUEO DE AUDIO ─────────────────────────────────────────
     const unlockAudio = () => {
       if (modoActual === "normal") iniciarAudioFondo();
       if (video.paused) video.play().catch(() => {});
