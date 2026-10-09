@@ -68,7 +68,11 @@
     radioPlayer.crossOrigin = "anonymous";
     radioPlayer.preload = "auto";
 
-    let modoActual = "normal"; // "normal" | "radio"
+    // Modos posibles en el TV1:
+    //   "normal"  → audio fondo + video panel
+    //   "radio"   → solo radio
+    //   "muteado" → TV2 tiene stream activo, aquí no suena nada
+    let modoActual = "normal";
 
     // ─── VIDEO PANEL ─────────────────────────────────────────────────
     video.src = VIDEO_URL_PANEL;
@@ -132,12 +136,11 @@
     function entrarModoNormal() {
       modoActual = "normal";
       detenerRadioTotal();
-      video.muted = true; // el video del panel siempre está muteado
+      video.muted = true;
       video.play().catch(() => {});
       iniciarAudioFondo();
     }
 
-    // 🔇 MODO RADIO: solo suena la radio en este televisor
     function entrarModoRadio(url) {
       modoActual = "radio";
       detenerAudioFondo();
@@ -147,6 +150,17 @@
       radioPlayer.muted = false;
       radioPlayer.volume = 1;
       radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
+    }
+
+    // 🔇 MODO MUTEADO: el TV2 está reproduciendo un stream, así que aquí
+    //    no debe sonar nada (ni audio de fondo, ni radio).
+    function entrarModoMuteado() {
+      modoActual = "muteado";
+      detenerRadioTotal();
+      detenerAudioFondo();
+      video.muted = true;
+      // El video del panel sigue visible
+      video.play().catch(() => {});
     }
 
     // ─── ESCUCHAR COMANDOS ───────────────────────────────────────────
@@ -159,6 +173,17 @@
       else if (action === CONTROL_ACTIONS.STOP_RADIO) {
         entrarModoNormal();
       }
+      // ⚡ Aunque el stream se muestra en el TV2, el TV1 igual reacciona
+      //    para silenciar su audio de fondo mientras el stream esté activo.
+      else if (action === CONTROL_ACTIONS.SET_STREAM) {
+        entrarModoMuteado();
+      }
+      else if (action === CONTROL_ACTIONS.STOP_STREAM) {
+        // Solo restaurar audio si no había radio activa
+        if (modoActual !== "radio") {
+          entrarModoNormal();
+        }
+      }
       else if (action === CONTROL_ACTIONS.RESET_ALL) {
         entrarModoNormal();
       }
@@ -169,7 +194,6 @@
           window.location.replace(url.toString());
         }
       }
-      // SET_STREAM / STOP_STREAM se ignoran: el streaming es del TV2
     });
 
     // ─── DESBLOQUEO DE AUDIO ─────────────────────────────────────────
@@ -191,6 +215,7 @@
           radioPlayer.play().catch(() => {});
         }
       }
+      // En modo "muteado" no hacemos nada
     });
 
     initRoutesSlideshow(document.getElementById("rutas-slide"), { intervalMs: 7000 });
