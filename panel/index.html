@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Panel</title>
+  <title>Televisor 1 - Panel</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <style>
@@ -37,18 +37,6 @@
     .cell-izq iframe { width: 100%; height: 100%; border: none; display: block; }
 
     video { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-    #streamFrame {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      border: none;
-      background: #000;
-      display: none;
-      z-index: 9999;
-    }
   </style>
 </head>
 
@@ -57,14 +45,7 @@
     <div class="cell cell-izq">
       <iframe src="https://mapahospital-ida.vercel.app/" title="BusTrack Realtime" allowfullscreen></iframe>
     </div>
-    <div class="cell cell-top-der">
-      <iframe
-    src="http://localhost:8889/camara"
-    style="width:100%; height:100%; border:none; display:block;"
-    allow="autoplay; fullscreen"
-    allowfullscreen>
-      </iframe>
-    </div>
+    <div class="cell cell-top-der">En proceso</div>
     <div class="cell cell-slide">
       <div id="rutas-slide" style="width: 100%; height: 100%;"></div>
     </div>
@@ -73,13 +54,7 @@
     </div>
   </div>
 
-  <iframe
-    id="streamFrame"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-    referrerpolicy="strict-origin-when-cross-origin"
-    allowfullscreen>
-  </iframe>
-
+  <!-- Audio de fondo continuo -->
   <audio id="bg-audio" preload="auto" loop></audio>
 
   <script type="module">
@@ -88,14 +63,14 @@
     import { listenControlCommands, CONTROL_ACTIONS } from "../shared/controller-sync.js";
 
     const video = document.getElementById("ad");
-    let audio = document.getElementById("bg-audio");
-    const streamFrame = document.getElementById("streamFrame");
+    const audio = document.getElementById("bg-audio");
 
+    // Reproductor de radio (solo para el Televisor 1)
     const radioPlayer = new Audio();
     radioPlayer.crossOrigin = "anonymous";
     radioPlayer.preload = "auto";
 
-    let modoActual = "normal";
+    let modoActual = "normal"; // "normal" | "radio"
 
     // ─── VIDEO PANEL ─────────────────────────────────────────────────
     video.src = VIDEO_URL_PANEL;
@@ -144,21 +119,6 @@
     });
 
     // ─── HELPERS ─────────────────────────────────────────────────────
-    function formatStreamUrl(url) {
-      if (!url) return "";
-      let videoId = "";
-      if (url.includes("v=")) videoId = url.split("v=")[1]?.split("&")[0];
-      else if (url.includes("youtu.be/")) videoId = url.split("youtu.be/")[1]?.split("?")[0];
-      else if (url.includes("youtube.com/live/")) videoId = url.split("youtube.com/live/")[1]?.split("?")[0];
-      else if (url.includes("embed/")) videoId = url.split("embed/")[1]?.split("?")[0];
-
-      if (videoId) {
-        const origin = encodeURIComponent(window.location.origin);
-        return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&enablejsapi=1&origin=${origin}`;
-      }
-      return url;
-    }
-
     function detenerRadioTotal() {
       try {
         radioPlayer.pause();
@@ -170,48 +130,26 @@
       }
     }
 
-    function detenerStreamTotal() {
-      try {
-        streamFrame.src = "";
-        streamFrame.style.display = "none";
-      } catch (e) {
-        console.warn("Error al detener stream:", e);
-      }
-    }
-
-    // 🔄 Vuelve el video del panel a su estado normal (reproducir desde el inicio)
-    function restaurarVideoPanel() {
-      video.muted = false;
-      video.pause();
-      video.currentTime = 0;
-      if (!video.src || video.src === "" || video.src === window.location.href) {
-        video.src = VIDEO_URL_PANEL;
-      }
-      video.load();
-      video.play().catch(() => {});
-    }
-
     // ─── MODOS ───────────────────────────────────────────────────────
     function entrarModoNormal() {
       modoActual = "normal";
       detenerRadioTotal();
-      detenerStreamTotal();
-      restaurarVideoPanel();
+      // Reactivar audio de fondo
       iniciarAudioFondo();
+      // Asegurar que el video del panel sigue sonando (si quieres que suene)
+      video.muted = true; // déjalo muteado si solo quieres el audio de fondo
+      video.play().catch(() => {});
     }
 
-    // 🔇 MODO RADIO: corta stream, deja el panel en su modo normal (muteado),
-    //    y suena SOLO la radio.
+    // 🔇 MODO RADIO: solo suena la radio en este televisor
     function entrarModoRadio(url) {
       modoActual = "radio";
 
-      // 1. Cortar stream y restaurar la vista normal del panel (muteada)
-      detenerStreamTotal();
-      restaurarVideoPanel();
-      video.muted = true;         // se ve pero no suena
-      detenerAudioFondo();        // el audio de fondo tampoco suena
+      // Silenciar TODO lo local
+      detenerAudioFondo();
+      video.muted = true;
 
-      // 2. Reproducir radio
+      // Reproducir radio
       detenerRadioTotal();
       radioPlayer.src = url;
       radioPlayer.muted = false;
@@ -219,37 +157,16 @@
       radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
     }
 
-    // 🎬 MODO STREAM: corta radio y audio de fondo, mutea video del panel,
-    //    muestra el stream si va al panel.
-    function entrarModoStream(url, target) {
-      modoActual = "stream";
-
-      detenerRadioTotal();
-      detenerAudioFondo();
-      video.muted = true;
-
-      if (target === "panel" || target === "both") {
-        streamFrame.src = formatStreamUrl(url);
-        streamFrame.style.display = "block";
-      } else {
-        detenerStreamTotal();
-      }
-    }
-
     // ─── ESCUCHAR COMANDOS ───────────────────────────────────────────
+    // ⚠️ El panel SOLO reacciona a comandos de RADIO y RESET.
+    //    Ignora SET_STREAM / STOP_STREAM porque el streaming es del Televisor 2.
     listenControlCommands((action, payload) => {
-      console.log("Panel recibió comando:", action, payload, "| modo:", modoActual);
+      console.log("Panel (TV1) recibió comando:", action, payload, "| modo:", modoActual);
 
       if (action === CONTROL_ACTIONS.SET_RADIO) {
         entrarModoRadio(payload.url);
       }
       else if (action === CONTROL_ACTIONS.STOP_RADIO) {
-        entrarModoNormal();
-      }
-      else if (action === CONTROL_ACTIONS.SET_STREAM) {
-        entrarModoStream(payload.url, payload.target);
-      }
-      else if (action === CONTROL_ACTIONS.STOP_STREAM) {
         entrarModoNormal();
       }
       else if (action === CONTROL_ACTIONS.RESET_ALL) {
@@ -262,12 +179,13 @@
           window.location.replace(url.toString());
         }
       }
+      // Los comandos SET_STREAM / STOP_STREAM se ignoran a propósito aquí.
     });
 
     // ─── DESBLOQUEO DE AUDIO (Smart TV) ──────────────────────────────
     const unlockAudio = () => {
       if (modoActual === "normal") iniciarAudioFondo();
-      if (video.paused && modoActual !== "stream") video.play().catch(() => {});
+      if (video.paused) video.play().catch(() => {});
     };
     window.addEventListener("click", unlockAudio, { once: true });
     window.addEventListener("touchstart", unlockAudio, { once: true });

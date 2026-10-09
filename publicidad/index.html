@@ -33,8 +33,10 @@
 </head>
 <body>
 
+  <!-- Video publicitario base -->
   <video id="ad" preload="auto" muted autoplay loop playsinline></video>
-  
+
+  <!-- Frame para transmisión en vivo (solo Televisor 2) -->
   <iframe 
     id="streamFrame" 
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
@@ -42,7 +44,7 @@
     allowfullscreen>
   </iframe>
 
-  <audio id="radioPlayer" style="display:none;"></audio>
+  <!-- ❌ Ya NO hay radioPlayer aquí: la radio es del Televisor 1 -->
 
   <script type="module">
     import { VIDEO_URL } from "../shared/config.js";
@@ -50,9 +52,8 @@
 
     const video = document.getElementById("ad");
     const streamFrame = document.getElementById("streamFrame");
-    const radioPlayer = document.getElementById("radioPlayer");
 
-    let modoActual = "normal"; // "normal" | "radio" | "stream"
+    let modoActual = "normal"; // "normal" | "stream"
 
     // ─── VIDEO PUBLICITARIO ──────────────────────────────────────────
     function loadAdVideo() {
@@ -96,17 +97,6 @@
       return url;
     }
 
-    function detenerRadioTotal() {
-      try {
-        radioPlayer.pause();
-        radioPlayer.currentTime = 0;
-        radioPlayer.removeAttribute("src");
-        radioPlayer.load();
-      } catch (e) {
-        console.warn("Error al detener radio:", e);
-      }
-    }
-
     function detenerStreamTotal() {
       try {
         streamFrame.src = "";
@@ -116,7 +106,6 @@
       }
     }
 
-    // 🔄 Vuelve el video publicitario a su estado normal (sonando desde el segundo 0)
     function restaurarVideoPublicitario() {
       video.muted = false;
       video.pause();
@@ -129,63 +118,32 @@
     // ─── MODOS ───────────────────────────────────────────────────────
     function entrarModoNormal() {
       modoActual = "normal";
-      detenerRadioTotal();
       detenerStreamTotal();
       restaurarVideoPublicitario();
     }
 
-    // 🔇 MODO RADIO: corta stream, vuelve el video publicitario a normal,
-    //    pero lo deja muteado, y suena SOLO la radio.
-    function entrarModoRadio(url) {
-      modoActual = "radio";
-
-      // 1. Cortar stream completamente y devolver el video publicitario a su
-      //    estado normal (visible en pantalla, desde el segundo 0, pero mudo).
-      detenerStreamTotal();
-      restaurarVideoPublicitario();
-      video.muted = true;   // el video se ve pero no suena
-
-      // 2. Reproducir radio
-      detenerRadioTotal();
-      radioPlayer.src = url;
-      radioPlayer.muted = false;
-      radioPlayer.volume = 1;
-      radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
-    }
-
-    // 🎬 MODO STREAM: corta radio, detiene video publicitario y muestra el stream
-    function entrarModoStream(url, target) {
+    // 🎬 MODO STREAM: corta el video publicitario y muestra el stream
+    function entrarModoStream(url) {
       modoActual = "stream";
 
-      // 1. Cortar radio
-      detenerRadioTotal();
-
-      // 2. Silenciar y pausar video publicitario (no lo reiniciamos aún;
-      //    se reiniciará cuando se detenga el stream)
+      // Pausar y mutear el video publicitario
       video.muted = true;
       video.pause();
 
-      // 3. Mostrar stream si va a esta pantalla
-      if (target === "publicidad" || target === "both") {
-        streamFrame.src = formatStreamUrl(url);
-        streamFrame.style.display = "block";
-      } else {
-        detenerStreamTotal();
-      }
+      // Mostrar stream
+      streamFrame.src = formatStreamUrl(url);
+      streamFrame.style.display = "block";
     }
 
     // ─── ESCUCHAR COMANDOS ───────────────────────────────────────────
+    // ⚠️ La publicidad SOLO reacciona a comandos de STREAM y RESET.
+    //    Ignora SET_RADIO / STOP_RADIO porque la radio es del Televisor 1.
     listenControlCommands((action, payload) => {
-      console.log("Publicidad recibió comando:", action, payload, "| modo:", modoActual);
+      console.log("Publicidad (TV2) recibió comando:", action, payload, "| modo:", modoActual);
 
-      if (action === CONTROL_ACTIONS.SET_RADIO) {
-        entrarModoRadio(payload.url);
-      }
-      else if (action === CONTROL_ACTIONS.STOP_RADIO) {
-        entrarModoNormal();
-      }
-      else if (action === CONTROL_ACTIONS.SET_STREAM) {
-        entrarModoStream(payload.url, payload.target);
+      if (action === CONTROL_ACTIONS.SET_STREAM) {
+        // El stream siempre va a esta pantalla (ya no hay selector de target)
+        entrarModoStream(payload.url);
       }
       else if (action === CONTROL_ACTIONS.STOP_STREAM) {
         entrarModoNormal();
@@ -200,6 +158,7 @@
           window.location.replace(url.toString());
         }
       }
+      // Los comandos SET_RADIO / STOP_RADIO se ignoran a propósito aquí.
     });
   </script>
 </body>

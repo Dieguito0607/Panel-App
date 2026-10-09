@@ -126,7 +126,7 @@
         <button id="btnStopRadio" class="btn-danger">⏹ Apagar Radio</button>
       </div>
     </div>
-
+    
     <!-- Control de Video Streaming -->
     <div class="card">
       <h2>📺 Streaming de Video en Vivo</h2>
@@ -137,6 +137,8 @@
       <label for="streamTarget">Enviar Transmisión a:</label>
       <select id="streamTarget">
         <option value="publicidad">Televisor 2 (Pantalla Publicitaria)</option>
+        <option value="panel">Televisor 1 (Panel Dividido)</option>
+        <option value="both">Ambos Televisores</option>
       </select>
 
       <div class="grid">
@@ -152,23 +154,19 @@
     </div>
   </div>
 
-  <script type="module">
+   <script type="module">
     import { sendControlCommand, CONTROL_ACTIONS } from "../shared/controller-sync.js";
 
     const radioSelect = document.getElementById("radioSelect");
     const radioUrl = document.getElementById("radioUrl");
     const streamUrl = document.getElementById("streamUrl");
-    const streamTarget = document.getElementById("streamTarget");
 
-    // Al elegir una emisora, llenamos automáticamente el input con su URL
     radioSelect.addEventListener("change", () => {
       const url = radioSelect.value;
-      if (url) {
-        radioUrl.value = url;
-      }
+      if (url) radioUrl.value = url;
     });
 
-    // ─── RADIO ───────────────────────────────────────────────────────
+    // ─── RADIO (Televisor 1) ────────────────────────────────────────
     document.getElementById("btnPlayRadio").addEventListener("click", () => {
       const url = radioUrl.value.trim() || radioSelect.value;
       if (!url) {
@@ -178,29 +176,25 @@
       sendControlCommand(CONTROL_ACTIONS.SET_RADIO, { url });
     });
 
-    // Apagar Radio: solo detiene. La pantalla reinicia su estado sin recargar.
     document.getElementById("btnStopRadio").addEventListener("click", () => {
       sendControlCommand(CONTROL_ACTIONS.STOP_RADIO);
     });
 
-    // ─── STREAMING ───────────────────────────────────────────────────
+    // ─── STREAMING (Televisor 2) ────────────────────────────────────
     document.getElementById("btnPlayStream").addEventListener("click", () => {
       const url = streamUrl.value.trim();
-      const target = streamTarget.value;
       if (!url) {
         alert("Por favor ingresa una URL de streaming.");
         return;
       }
-      sendControlCommand(CONTROL_ACTIONS.SET_STREAM, { url, target });
+      sendControlCommand(CONTROL_ACTIONS.SET_STREAM, { url });
     });
 
-    // Detener Streaming: solo detiene. La pantalla reinicia su estado sin recargar.
     document.getElementById("btnStopStream").addEventListener("click", () => {
       sendControlCommand(CONTROL_ACTIONS.STOP_STREAM);
     });
 
     // ─── RESET ───────────────────────────────────────────────────────
-    // Restablecer: solo limpia el estado en las pantallas, sin recargar.
     document.getElementById("btnReset").addEventListener("click", () => {
       sendControlCommand(CONTROL_ACTIONS.RESET_ALL);
     });
