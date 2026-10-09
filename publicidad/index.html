@@ -33,8 +33,10 @@
 </head>
 <body>
 
+  <!-- Video publicitario base -->
   <video id="ad" preload="auto" muted autoplay loop playsinline></video>
   
+  <!-- Frame para transmisión en vivo -->
   <iframe 
     id="streamFrame" 
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
@@ -42,6 +44,7 @@
     allowfullscreen>
   </iframe>
 
+  <!-- Reproductor de Radio -->
   <audio id="radioPlayer" style="display:none;"></audio>
 
   <script type="module">
@@ -52,7 +55,9 @@
     const streamFrame = document.getElementById("streamFrame");
     const radioPlayer = document.getElementById("radioPlayer");
 
-    let modoActual = "normal"; // "normal" | "radio" | "stream"
+    // ─── ESTADO GLOBAL ───────────────────────────────────────────────
+    // "normal" | "radio" | "stream"
+    let modoActual = "normal";
 
     // ─── CARGA DEL VIDEO PUBLICITARIO ────────────────────────────────
     function loadAdVideo() {
@@ -80,7 +85,7 @@
     setTimeout(ensureVideoPlaying, 1000);
     setTimeout(ensureVideoPlaying, 3000);
 
-    // ─── HELPERS ─────────────────────────────────────────────────────
+    // ─── FORMATEAR URL DE STREAM ─────────────────────────────────────
     function formatStreamUrl(url) {
       if (!url) return "";
       let videoId = "";
@@ -96,83 +101,66 @@
       return url;
     }
 
-    // 🛑 Detiene por completo la radio (pausa + vacía src para liberar buffer)
-    function detenerRadioTotal() {
-      try {
-        radioPlayer.pause();
-        radioPlayer.currentTime = 0;
-        radioPlayer.removeAttribute("src");
-        radioPlayer.load();
-      } catch (e) {
-        console.warn("Error al detener radio:", e);
-      }
-    }
-
-    // 🛑 Detiene por completo el stream (vacía src del iframe)
-    function detenerStreamTotal() {
-      try {
-        streamFrame.src = "";
-        streamFrame.style.display = "none";
-      } catch (e) {
-        console.warn("Error al detener stream:", e);
-      }
-    }
-
-    // ─── MODOS ───────────────────────────────────────────────────────
-    // 🔄 MODO NORMAL: video publicitario desde el segundo 0
+    // ─── FUNCIONES DE CAMBIO DE MODO ─────────────────────────────────
+    // 🔄 Reinicia TODO el estado y vuelve el video publicitario desde cero.
+    //    Sin recargar la página.
     function entrarModoNormal() {
       modoActual = "normal";
 
-      // 1. Detener radio y stream primero
-      detenerRadioTotal();
-      detenerStreamTotal();
+      // Detener radio
+      radioPlayer.pause();
+      radioPlayer.removeAttribute("src");
+      radioPlayer.load();
 
-      // 2. Reiniciar video publicitario desde el principio
+      // Detener stream
+      streamFrame.src = "";
+      streamFrame.style.display = "none";
+
+      // Reiniciar video publicitario desde el principio
       video.muted = false;
       video.pause();
       video.currentTime = 0;
-      loadAdVideo();
-      video.load();
+      loadAdVideo();          // reasigna src si se perdió
+      video.load();           // fuerza recarga del buffer
       video.play().catch(() => {});
     }
 
-    // 🔇 MODO RADIO: solo suena la radio, TODO lo demás detenido
+    // 🔇 RADIO: mutear TODO excepto la radio
     function entrarModoRadio(url) {
       modoActual = "radio";
 
-      // 1. Detener stream si había (exclusión mutua)
-      detenerStreamTotal();
-
-      // 2. Detener video publicitario (mute + pausa)
+      // Mute total de video y stream
       video.muted = true;
       video.pause();
+      streamFrame.src = "";
+      streamFrame.style.display = "none";
 
-      // 3. Reproducir radio
-      detenerRadioTotal(); // limpia cualquier buffer previo
+      // Solo suena la radio
       radioPlayer.src = url;
       radioPlayer.muted = false;
       radioPlayer.volume = 1;
       radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
     }
 
-    // 🎬 MODO STREAM: solo suena el stream, TODO lo demás detenido
     function entrarModoStream(url, target) {
       modoActual = "stream";
 
-      // 1. Detener radio si había (exclusión mutua)
-      detenerRadioTotal();
+      // Detener radio si había
+      radioPlayer.pause();
+      radioPlayer.removeAttribute("src");
+      radioPlayer.load();
 
-      // 2. Detener video publicitario (mute + pausa)
+      // Silenciar y pausar video publicitario
       video.muted = true;
       video.pause();
 
-      // 3. Mostrar stream si va a esta pantalla
+      // Mostrar stream si va a esta pantalla
       if (target === "publicidad" || target === "both") {
         streamFrame.src = formatStreamUrl(url);
         streamFrame.style.display = "block";
       } else {
-        // El stream va al panel, pero igual dejamos todo lo local detenido
-        detenerStreamTotal();
+        streamFrame.src = "";
+        streamFrame.style.display = "none";
       }
     }
 
@@ -195,6 +183,8 @@
       else if (action === CONTROL_ACTIONS.RESET_ALL) {
         entrarModoNormal();
       }
+      // RELOAD_SCREEN sigue existiendo por si algún día lo quieres usar,
+      // pero ya no se dispara desde los botones de detener.
       else if (action === CONTROL_ACTIONS.RELOAD_SCREEN) {
         if (!payload || payload.target === "publicidad" || payload.target === "both") {
           const url = new URL(window.location.href);

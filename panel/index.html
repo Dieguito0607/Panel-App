@@ -42,11 +42,30 @@
       letter-spacing: 0.05em;
     }
 
-    .cell-izq { grid-area: izq; }
-    .cell-top-der { grid-area: top-der; border: 1px solid #222; }
-    .cell-slide { grid-area: video; }
+    .cell-izq {
+      grid-area: izq;
+      padding: 0;
+      margin: 0;
+      border: none;
+    }
+
+    .cell-top-der {
+      grid-area: top-der;
+      border: 1px solid #222;
+    }
+
+    .cell-slide {
+      grid-area: video;
+      padding: 0;
+      margin: 0;
+      border: none;
+    }
+
     .cell-video {
       grid-area: bot-der;
+      padding: 0;
+      margin: 0;
+      border: none;
       background: #000;
       transform: translateZ(0);
       will-change: transform;
@@ -57,6 +76,7 @@
       height: 100%;
       border: none;
       display: block;
+      transform: translateZ(0);
     }
 
     video {
@@ -64,6 +84,8 @@
       height: 100%;
       object-fit: cover;
       display: block;
+      transform: translateZ(0);
+      will-change: transform;
     }
 
     #streamFrame {
@@ -115,7 +137,7 @@
     import { initRoutesSlideshow } from "../shared/routes-slideshow.js";
     import { listenControlCommands, CONTROL_ACTIONS } from "../shared/controller-sync.js";
 
-    const video = document.getElementById("ad");
+    let video = document.getElementById("ad");
     let audio = document.getElementById("bg-audio");
     const streamFrame = document.getElementById("streamFrame");
 
@@ -123,7 +145,8 @@
     radioPlayer.crossOrigin = "anonymous";
     radioPlayer.preload = "auto";
 
-    let modoActual = "normal"; // "normal" | "radio" | "stream"
+    // ─── ESTADO GLOBAL ───────────────────────────────────────────────
+    let modoActual = "normal";
 
     // ─── VIDEO PANEL ─────────────────────────────────────────────────
     video.src = VIDEO_URL_PANEL;
@@ -171,7 +194,7 @@
       }
     });
 
-    // ─── HELPERS ─────────────────────────────────────────────────────
+    // ─── FORMATEAR URL DE STREAM ─────────────────────────────────────
     function formatStreamUrl(url) {
       if (!url) return "";
       let videoId = "";
@@ -187,35 +210,21 @@
       return url;
     }
 
-    function detenerRadioTotal() {
-      try {
-        radioPlayer.pause();
-        radioPlayer.currentTime = 0;
-        radioPlayer.removeAttribute("src");
-        radioPlayer.load();
-      } catch (e) {
-        console.warn("Error al detener radio:", e);
-      }
-    }
-
-    function detenerStreamTotal() {
-      try {
-        streamFrame.src = "";
-        streamFrame.style.display = "none";
-      } catch (e) {
-        console.warn("Error al detener stream:", e);
-      }
-    }
-
-    // ─── MODOS ───────────────────────────────────────────────────────
+    // ─── FUNCIONES DE CAMBIO DE MODO ─────────────────────────────────
+    // 🔄 Reinicia TODO sin recargar la página.
     function entrarModoNormal() {
       modoActual = "normal";
 
-      // 1. Detener radio y stream
-      detenerRadioTotal();
-      detenerStreamTotal();
+      // Detener radio
+      radioPlayer.pause();
+      radioPlayer.removeAttribute("src");
+      radioPlayer.load();
 
-      // 2. Reiniciar video del panel desde el segundo 0
+      // Detener stream
+      streamFrame.src = "";
+      streamFrame.style.display = "none";
+
+      // Reiniciar video del panel desde el principio
       video.muted = false;
       video.pause();
       video.currentTime = 0;
@@ -225,46 +234,42 @@
       video.load();
       video.play().catch(() => {});
 
-      // 3. Reactivar audio de fondo
+      // Reiniciar audio de fondo
       iniciarAudioFondo();
     }
 
-    // 🔇 MODO RADIO: solo suena la radio
+    // 🔇 RADIO: mutear TODO excepto la radio
     function entrarModoRadio(url) {
       modoActual = "radio";
 
-      // 1. Detener stream si había (exclusión mutua)
-      detenerStreamTotal();
-
-      // 2. Silenciar TODO lo local
+      // Silenciar TODO lo local
       detenerAudioFondo();
       video.muted = true;
+      streamFrame.src = "";
+      streamFrame.style.display = "none";
 
-      // 3. Reproducir radio
-      detenerRadioTotal();
+      // Solo suena la radio
       radioPlayer.src = url;
       radioPlayer.muted = false;
       radioPlayer.volume = 1;
       radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
     }
 
-    // 🎬 MODO STREAM: solo suena el stream
     function entrarModoStream(url, target) {
       modoActual = "stream";
 
-      // 1. Detener radio si había (exclusión mutua)
-      detenerRadioTotal();
-
-      // 2. Silenciar TODO lo local
       detenerAudioFondo();
       video.muted = true;
+      radioPlayer.pause();
+      radioPlayer.removeAttribute("src");
+      radioPlayer.load();
 
-      // 3. Mostrar stream si va al panel
       if (target === "panel" || target === "both") {
         streamFrame.src = formatStreamUrl(url);
         streamFrame.style.display = "block";
       } else {
-        detenerStreamTotal();
+        streamFrame.src = "";
+        streamFrame.style.display = "none";
       }
     }
 
@@ -287,6 +292,7 @@
       else if (action === CONTROL_ACTIONS.RESET_ALL) {
         entrarModoNormal();
       }
+      // RELOAD_SCREEN sigue disponible pero ya no se dispara desde los botones
       else if (action === CONTROL_ACTIONS.RELOAD_SCREEN) {
         if (!payload || payload.target === "panel" || payload.target === "both") {
           const url = new URL(window.location.href);
