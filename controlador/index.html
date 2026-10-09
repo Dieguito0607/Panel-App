@@ -108,11 +108,8 @@
       <label for="radioSelect">Seleccionar Emisora Preconfigurada:</label>
       <select id="radioSelect">
         <option value="">-- Seleccionar una emisora --</option>
-        <option value="https://stream.zeno.fm/1p9tu7b5rm0uv" data-freq="92.5 FM">📻 Son Carupanero — 92.5 FM</option>
-        <option value="https://streaming.hostpannel.lat/stream8795" data-freq="96.1 FM">📻 Sonica — 96.1 FM</option>
-        <option value="https://app2.radionlin.com/listen/carnaval/radio.mp3" data-freq="99.3 FM">📻 Carnaval — 99.3 FM</option>
-        <option value="https://streamingned.com:7112/stream" data-freq="102.7 FM">📻 Costera — 102.7 FM</option>
-        <option value="https://stream.zenolive.com/tz3pabr3998uv" data-freq="106.5 FM">📻 Mística — 106.5 FM</option>
+        <option value="https://stream.zeno.fm/f3231eb93uquv" data-freq="92.5 FM">📻 Emisora Local FM 1 — 92.5 FM</option>
+        <option value="https://stream.zeno.fm/0883398488000" data-freq="Online">📻 Emisora Noticias / Deporte — Online</option>
         <!-- 🔽 AÑADE AQUÍ LAS EMISORAS REALES DE CARÚPANO 🔽 -->
         <!-- <option value="URL_REAL_AQUI" data-freq="XX.X FM">📻 Nombre de la emisora — XX.X FM</option> -->
       </select>
@@ -137,6 +134,8 @@
       <label for="streamTarget">Enviar Transmisión a:</label>
       <select id="streamTarget">
         <option value="publicidad">Televisor 2 (Pantalla Publicitaria)</option>
+        <option value="panel">Televisor 1 (Panel Dividido)</option>
+        <option value="both">Ambos Televisores</option>
       </select>
 
       <div class="grid">
@@ -175,14 +174,12 @@
         alert("Por favor selecciona una emisora o ingresa una URL de radio.");
         return;
       }
-      // SET_RADIO hace que el panel y la publicidad muten TODO excepto la radio
       sendControlCommand(CONTROL_ACTIONS.SET_RADIO, { url });
     });
 
-    // Apagar Radio: detiene y recarga las pantallas
+    // Apagar Radio: solo detiene. La pantalla reinicia su estado sin recargar.
     document.getElementById("btnStopRadio").addEventListener("click", () => {
       sendControlCommand(CONTROL_ACTIONS.STOP_RADIO);
-      sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target: "both" });
     });
 
     // ─── STREAMING ───────────────────────────────────────────────────
@@ -196,17 +193,15 @@
       sendControlCommand(CONTROL_ACTIONS.SET_STREAM, { url, target });
     });
 
-    // Detener Streaming: detiene y recarga las pantallas afectadas
+    // Detener Streaming: solo detiene. La pantalla reinicia su estado sin recargar.
     document.getElementById("btnStopStream").addEventListener("click", () => {
-      const target = streamTarget.value;
       sendControlCommand(CONTROL_ACTIONS.STOP_STREAM);
-      sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target });
     });
 
     // ─── RESET ───────────────────────────────────────────────────────
+    // Restablecer: solo limpia el estado en las pantallas, sin recargar.
     document.getElementById("btnReset").addEventListener("click", () => {
       sendControlCommand(CONTROL_ACTIONS.RESET_ALL);
-      sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target: "both" });
     });
   </script>
 </body>

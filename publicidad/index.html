@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Televisor 2 - Publicidad</title>
+  <title>Televisor 2 - Publicidad / Streaming</title>
   <style>
     html, body {
       margin: 0;
@@ -101,38 +101,59 @@
       return url;
     }
 
-    // ─── RECARGA CON CACHE-BUSTING ───────────────────────────────────
-    function reloadWithCacheBust() {
-      const url = new URL(window.location.href);
-      url.searchParams.set("_r", Date.now().toString());
-      window.location.replace(url.toString());
-    }
-
     // ─── FUNCIONES DE CAMBIO DE MODO ─────────────────────────────────
+    // 🔄 Reinicia TODO el estado y vuelve el video publicitario desde cero.
+    //    Sin recargar la página.
     function entrarModoNormal() {
       modoActual = "normal";
+
       // Detener radio
       radioPlayer.pause();
       radioPlayer.removeAttribute("src");
       radioPlayer.load();
+
       // Detener stream
       streamFrame.src = "";
       streamFrame.style.display = "none";
-      // Restaurar video publicitario
+
+      // Reiniciar video publicitario desde el principio
       video.muted = false;
+      video.pause();
+      video.currentTime = 0;
+      loadAdVideo();          // reasigna src si se perdió
+      video.load();           // fuerza recarga del buffer
       video.play().catch(() => {});
     }
 
+    // 🔇 RADIO: mutear TODO excepto la radio
+    function entrarModoRadio(url) {
+      modoActual = "radio";
+
+      // Mute total de video y stream
+      video.muted = true;
+      video.pause();
+      streamFrame.src = "";
+      streamFrame.style.display = "none";
+
+      // Solo suena la radio
+      radioPlayer.src = url;
+      radioPlayer.muted = false;
+      radioPlayer.volume = 1;
+      radioPlayer.play().catch((e) => console.warn("Error al reproducir radio:", e));
+    }
 
     function entrarModoStream(url, target) {
       modoActual = "stream";
+
       // Detener radio si había
       radioPlayer.pause();
       radioPlayer.removeAttribute("src");
       radioPlayer.load();
+
       // Silenciar y pausar video publicitario
       video.muted = true;
       video.pause();
+
       // Mostrar stream si va a esta pantalla
       if (target === "publicidad" || target === "both") {
         streamFrame.src = formatStreamUrl(url);
@@ -162,9 +183,13 @@
       else if (action === CONTROL_ACTIONS.RESET_ALL) {
         entrarModoNormal();
       }
+      // RELOAD_SCREEN sigue existiendo por si algún día lo quieres usar,
+      // pero ya no se dispara desde los botones de detener.
       else if (action === CONTROL_ACTIONS.RELOAD_SCREEN) {
         if (!payload || payload.target === "publicidad" || payload.target === "both") {
-          reloadWithCacheBust();
+          const url = new URL(window.location.href);
+          url.searchParams.set("_r", Date.now().toString());
+          window.location.replace(url.toString());
         }
       }
     });
