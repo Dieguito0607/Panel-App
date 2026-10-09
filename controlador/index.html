@@ -66,23 +66,19 @@
 
     <!-- Radio → Televisor 1 -->
     <div class="card">
-      <h2>📻 Radio en Vivo (Audio)</h2>
-      
+      <h2>📻 Radio en Vivo — Televisor 1 (Panel)</h2>
+
       <label for="radioSelect">Seleccionar Emisora Preconfigurada:</label>
       <select id="radioSelect">
         <option value="">-- Seleccionar una emisora --</option>
-        <option value="https://stream.zeno.fm/1p9tu7b5rm0uv" data-freq="92.5 FM">📻 Son Carupanero — 92.5 FM</option>
-        <option value="https://streaming.hostpannel.lat/stream8795" data-freq="96.1 FM">📻 Sonica — 96.1 FM</option>
-        <option value="https://app2.radionlin.com/listen/carnaval/radio.mp3" data-freq="99.3 FM">📻 Carnaval — 99.3 FM</option>
-        <option value="https://streamingned.com:7112/stream" data-freq="102.7 FM">📻 Costera — 102.7 FM</option>
-        <option value="https://stream.zenolive.com/tz3pabr3998uv" data-freq="106.5 FM">📻 Mística — 106.5 FM</option>
+        <option value="https://stream.zeno.fm/f3231eb93uquv" data-freq="92.5 FM">📻 Emisora Local FM 1 — 92.5 FM</option>
+        <option value="https://stream.zeno.fm/0883398488000" data-freq="Online">📻 Emisora Noticias / Deporte — Online</option>
         <!-- 🔽 AÑADE AQUÍ LAS EMISORAS REALES DE CARÚPANO 🔽 -->
-        <!-- <option value="URL_REAL_AQUI" data-freq="XX.X FM">📻 Nombre de la emisora — XX.X FM</option> -->
       </select>
 
-      <label for="radioUrl">URL de Radio (se llena al elegir una emisora):</label>
+      <label for="radioUrl">URL de Radio:</label>
       <input type="text" id="radioUrl" placeholder="https://stream.ejemplo.com/radio.mp3">
-      <p class="hint">Puedes elegir una emisora de la lista o pegar una URL manualmente.</p>
+      <p class="hint">La radio suena en el <strong>TV1</strong>. Al activarla, se detiene el stream y el TV2 se recarga.</p>
 
       <div class="grid">
         <button id="btnPlayRadio">▶ Sintonizar Radio</button>
@@ -96,7 +92,7 @@
 
       <label for="streamUrl">URL de Transmisión (YouTube, HLS .m3u8 o Video directo):</label>
       <input type="text" id="streamUrl" placeholder="https://www.youtube.com/watch?v=LIVE_ID o http://.../live.m3u8">
-      <p class="hint">El streaming solo se muestra en el <strong>Televisor 2 (Publicidad)</strong>. Al activarlo, se detiene la radio.</p>
+      <p class="hint">El streaming se muestra en el <strong>TV2</strong>. Al activarlo, se detiene la radio.</p>
 
       <div class="grid">
         <button id="btnPlayStream">🎬 Iniciar Streaming</button>
@@ -124,46 +120,52 @@
     });
 
     // ─── RADIO (Televisor 1) ────────────────────────────────────────
-    // ⚡ Al activar radio, primero detenemos cualquier stream que esté
-    //    activo. Luego encendemos la radio.
+    // Al activar radio:
+    //   1. STOP_STREAM → el TV2 vuelve a publicidad y se recarga
+    //   2. SET_RADIO   → el TV1 enciende la radio
+    //   3. RELOAD_SCREEN → SOLO el TV2 recarga la página
     document.getElementById("btnPlayRadio").addEventListener("click", () => {
       const url = radioUrl.value.trim() || radioSelect.value;
       if (!url) {
         alert("Por favor selecciona una emisora o ingresa una URL de radio.");
         return;
       }
-      // 1. Detener cualquier stream activo (exclusión global)
       sendControlCommand(CONTROL_ACTIONS.STOP_STREAM);
-      // 2. Encender radio en el Televisor 1
       sendControlCommand(CONTROL_ACTIONS.SET_RADIO, { url });
+      sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target: "publicidad" });
     });
 
+    // Apagar Radio: solo afecta al TV1. El TV2 no cambia.
     document.getElementById("btnStopRadio").addEventListener("click", () => {
       sendControlCommand(CONTROL_ACTIONS.STOP_RADIO);
     });
 
     // ─── STREAMING (Televisor 2) ────────────────────────────────────
-    // ⚡ Al activar stream, primero detenemos cualquier radio que esté
-    //    activa. Luego encendemos el stream.
+    // Al activar stream:
+    //   1. STOP_RADIO → el TV1 vuelve a modo normal
+    //   2. SET_STREAM → el TV2 muestra el stream
+    //   (No recargamos TV2 aquí porque queremos que se vea el stream)
     document.getElementById("btnPlayStream").addEventListener("click", () => {
       const url = streamUrl.value.trim();
       if (!url) {
         alert("Por favor ingresa una URL de streaming.");
         return;
       }
-      // 1. Detener cualquier radio activa (exclusión global)
       sendControlCommand(CONTROL_ACTIONS.STOP_RADIO);
-      // 2. Encender stream en el Televisor 2
       sendControlCommand(CONTROL_ACTIONS.SET_STREAM, { url });
     });
 
+    // Detener Streaming: el TV2 vuelve a publicidad y se recarga.
     document.getElementById("btnStopStream").addEventListener("click", () => {
       sendControlCommand(CONTROL_ACTIONS.STOP_STREAM);
+      sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target: "publicidad" });
     });
 
     // ─── RESET ───────────────────────────────────────────────────────
+    // Restablecer todo: TV1 limpia estado, TV2 recarga página.
     document.getElementById("btnReset").addEventListener("click", () => {
       sendControlCommand(CONTROL_ACTIONS.RESET_ALL);
+      sendControlCommand(CONTROL_ACTIONS.RELOAD_SCREEN, { target: "publicidad" });
     });
   </script>
 </body>
