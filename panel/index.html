@@ -108,14 +108,11 @@
       <iframe src="https://mapahospital-ida.vercel.app/" title="BusTrack Realtime" allowfullscreen></iframe>
     </div>
 <div class="cell cell-top-der" style="position:relative; overflow:hidden; background:#000;">
-  <iframe 
-    src="http://192.168.1.119:8889/camara?muted"
-    style="position:absolute; top:50%; left:50%; 
-           width:100%; height:100%; 
-           transform: translate(-50%, -50%) scale(1.35); 
-           border:none;"
-    allow="autoplay; fullscreen">
-  </iframe>
+<video 
+  src="http://192.168.1.119:8889/camara/index.m3u8"
+  autoplay muted playsinline
+  style="width:100%; height:100%; object-fit:cover; display:block;">
+</video>
 </div>
     <div class="cell cell-video">
       <video id="ad" preload="auto" muted autoplay loop playsinline></video>
